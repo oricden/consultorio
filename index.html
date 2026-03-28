@@ -8,6 +8,8 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 :root{--azul:#1a5f9e;--azul2:#0d3d6b;--verde:#198754;--wpp:#25D366}
 *{box-sizing:border-box}
@@ -326,8 +328,15 @@ table.ptbl tbody tr:hover{background:#f5f8ff}
           <div class="wpp-bubble" id="wppPrevia">—</div>
         </div>
         <div class="d-flex gap-2">
-          <button class="btn btn-success flex-grow-1" onclick="enviarWpp()"><i class="bi bi-whatsapp me-2"></i>Abrir no WhatsApp</button>
-          <button class="btn btn-outline-secondary" onclick="document.getElementById('wppTexto').value='';atualizarPrevia()"><i class="bi bi-x-lg"></i></button>
+          <button class="btn btn-primary flex-grow-1" onclick="gerarLinkWpp()"><i class="bi bi-link-45deg me-2"></i>Gerar Link WhatsApp</button>
+          <button class="btn btn-outline-secondary" onclick="limparWppForm()"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div id="wppLinkGerado" style="display:none;margin-top:10px">
+          <a id="wppLinkAnchor" href="#" target="_blank" class="btn btn-success w-100" style="font-size:1rem;padding:12px 16px">
+            <i class="bi bi-whatsapp me-2"></i>Clique aqui para abrir o WhatsApp
+          </a>
+          <div class="text-muted small mt-1 text-center"><i class="bi bi-info-circle me-1"></i>Se não abrir, copie o link: <span id="wppLinkTexto" style="font-size:.75rem;word-break:break-all"></span></div>
+        </div>
         </div>
       </div>
     </div>
@@ -401,11 +410,27 @@ const TEMPLATES = {
 };
 
 // =====================================================================
+//  FIREBASE
+// =====================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCY-85RZYOvJWXUXAB6FIFWdJewLY5xngc",
+  authDomain: "consultorio-fd59e.firebaseapp.com",
+  databaseURL: "https://consultorio-fd59e-default-rtdb.firebaseio.com",
+  projectId: "consultorio-fd59e",
+  storageBucket: "consultorio-fd59e.firebasestorage.app",
+  messagingSenderId: "846033324251",
+  appId: "1:846033324251:web:bf8f19aec172aabf8b24fe"
+};
+firebase.initializeApp(firebaseConfig);
+const fbRef = firebase.database().ref('pacientes');
+
+// =====================================================================
 //  ESTADO
 // =====================================================================
 let db = JSON.parse(localStorage.getItem('odon_v3') || '[]');
 let filtradosAtual = [], editandoId = null;
 let wppPacAtual = null, docPacAtual = null, docTipoAtual = null;
+let fbCarregado = false;
 
 const STATUS_LIST = ['Ativo','Em tratamento','Com pendências','Inativo'];
 const WPP_TEMPLATES = [
@@ -435,7 +460,15 @@ const DOC_LABELS = {
 //  UTILITÁRIOS
 // =====================================================================
 const uid = () => Date.now().toString(36)+Math.random().toString(36).substr(2);
-const save = () => localStorage.setItem('odon_v3', JSON.stringify(db));
+
+function save(){
+  // Salvar no Firebase
+  const obj = {};
+  db.forEach(p => { obj[p.id] = p; });
+  fbRef.set(obj).catch(err => console.warn('Firebase erro:', err));
+  // Cache local
+  localStorage.setItem('odon_v3', JSON.stringify(db));
+}
 
 function toast(msg, tipo='ok'){
   const el=document.getElementById('toastMsg');
@@ -815,14 +848,22 @@ function usarTemplate(i){
 function atualizarPrevia(){document.getElementById('wppPrevia').textContent=document.getElementById('wppTexto').value||'—';}
 document.getElementById('wppTexto').addEventListener('input',atualizarPrevia);
 
-function enviarWpp(){
+function gerarLinkWpp(){
   const msg=document.getElementById('wppTexto').value.trim();
   if(!msg){toast('Digite uma mensagem.','erro');return;}
   if(!wppPacAtual){toast('Selecione um paciente.','erro');return;}
   const url=wppLink(wppPacAtual.whatsapp)+'?text='+encodeURIComponent(msg);
-  const a=document.createElement('a');
-  a.href=url; a.target='_blank'; a.rel='noopener noreferrer';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const anchor=document.getElementById('wppLinkAnchor');
+  anchor.href=url;
+  document.getElementById('wppLinkTexto').textContent=url;
+  document.getElementById('wppLinkGerado').style.display='block';
+  anchor.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function limparWppForm(){
+  document.getElementById('wppTexto').value='';
+  document.getElementById('wppLinkGerado').style.display='none';
+  atualizarPrevia();
 }
 
 // =====================================================================
@@ -1132,9 +1173,28 @@ function renderPainel(){
 }
 
 // =====================================================================
-//  INIT
+//  INIT — Carregar dados do Firebase com sync em tempo real
 // =====================================================================
-renderTabela();
+// Mostrar indicador de carregamento
+document.getElementById('topInfo').textContent = 'Conectando ao Firebase...';
+
+fbRef.on('value', (snapshot) => {
+  const data = snapshot.val();
+  db = data ? Object.values(data) : [];
+  // Cache local para uso offline
+  localStorage.setItem('odon_v3', JSON.stringify(db));
+  if (!fbCarregado) {
+    fbCarregado = true;
+    document.getElementById('topInfo').textContent = db.length + ' paciente(s)';
+  }
+  renderTabela();
+}, (error) => {
+  // Fallback para localStorage se Firebase falhar
+  console.warn('Firebase offline, usando cache local:', error);
+  db = JSON.parse(localStorage.getItem('odon_v3') || '[]');
+  document.getElementById('topInfo').textContent = db.length + ' paciente(s) (offline)';
+  renderTabela();
+});
 </script>
 </body>
 </html>
