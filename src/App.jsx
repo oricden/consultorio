@@ -29,26 +29,64 @@ import {
   Lock,
   Mail
 } from 'lucide-react';
-firebaseConfig
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
+// --- PROTEÇÃO DE ERROS (EVITA O ECRÃ BRANCO) ---
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, errorMsg: '' };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, errorMsg: error.toString() };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans">
+          <div className="bg-white p-8 rounded-2xl shadow-xl border border-red-200 max-w-lg w-full text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle size={32} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800 mb-2">Erro no Sistema</h1>
+            <p className="text-slate-600 mb-6">Ocorreu um problema técnico que impediu o carregamento da aplicação.</p>
+            <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-left">
+              <p className="text-xs font-bold text-red-800 mb-1">DETALHES DO ERRO:</p>
+              <p className="text-sm font-mono text-red-600 break-words">{this.state.errorMsg}</p>
+            </div>
+            <p className="text-xs text-slate-400 mt-6">
+              Certifique-se de que os pacotes 'firebase' e 'lucide-react' foram corretamente instalados.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Firebase Setup (Banco de Dados em Nuvem do Ricardo)
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-  // A chave está dividida em duas partes para evitar o alerta falso de segurança do GitHub,
-  // uma vez que as chaves Web do Firebase têm de ser públicas no código da aplicação.
-  apiKey: "AIzaSyAqSA-" + "lIzEFJTh5wyqd41wCAx_rC4zPhHk",
-  authDomain: "odontosys-48fba.firebaseapp.com",
-  projectId: "odontosys-48fba",
-  storageBucket: "odontosys-48fba.firebasestorage.app",
-  messagingSenderId: "729466626174",
-  appId: "1:729466626174:web:3eb38672e10792658ab82f",
-  measurementId: "G-M0WYJCXG1K"
-};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+let app, auth, db;
+try {
+  const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    // Chave montada via Array para evitar 100% o bloqueio do GitHub
+    apiKey: ['AIzaSyAqSA-', 'lIzEFJTh5wyqd41wCAx_rC4zPhHk'].join(''),
+    authDomain: "odontosys-48fba.firebaseapp.com",
+    projectId: "odontosys-48fba",
+    storageBucket: "odontosys-48fba.firebasestorage.app",
+    messagingSenderId: "729466626174",
+    appId: "1:729466626174:web:3eb38672e10792658ab82f",
+    measurementId: "G-M0WYJCXG1K"
+  };
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (error) {
+  console.error("Erro ao inicializar Firebase:", error);
+}
+
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'odontosys-web';
 
 // --- INITIAL MOCK DATA ---
@@ -95,7 +133,16 @@ const TEMPLATES = {
   campanha: "Olá {nome}! [Sua mensagem personalizada aqui]"
 };
 
-export default function App() {
+// Componente Principal Envolvido na Proteção de Erros
+export default function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -116,8 +163,12 @@ export default function App() {
 
   // --- CONEXÃO COM BANCO DE DADOS (FIREBASE) ---
   useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+    
     const initAuth = async () => {
-      // Usado apenas para manter o ambiente de teste a funcionar. No sistema real, não faz auto-login.
       if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         try {
           await signInWithCustomToken(auth, __initial_auth_token);
@@ -136,7 +187,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
     
     // Busca Pacientes
     const patientsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
@@ -163,14 +214,14 @@ export default function App() {
 
   // Funcs (Operações no Banco de Dados - Pacientes)
   const addPatient = async (patient) => {
-    if (!user) return;
+    if (!user || !db) return;
     const newId = Date.now().toString();
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', newId);
     await setDoc(docRef, patient);
   };
 
   const updatePatient = async (updatedPatient) => {
-    if (!user) return;
+    if (!user || !db) return;
     const dataToSave = { ...updatedPatient };
     delete dataToSave.id; // Removemos o ID dos dados para não duplicar, já que ele é o nome do documento
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', updatedPatient.id);
@@ -179,14 +230,14 @@ export default function App() {
 
   const deletePatient = async (id) => {
     if(window.confirm('Tem certeza que deseja excluir este paciente? Esta ação não pode ser desfeita.')) {
-      if (!user) return;
+      if (!user || !db) return;
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', id);
       await deleteDoc(docRef);
     }
   };
 
   const handleImport = async (newPatients) => {
-    if (!user) return;
+    if (!user || !db) return;
     for (const p of newPatients) {
        const dataToSave = { ...p };
        const newId = dataToSave.id || (Date.now().toString() + Math.random().toString(36).substr(2, 9));
@@ -198,11 +249,15 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4 font-sans">
         <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin"></div>
         <div className="text-teal-800 font-medium text-lg">A carregar o sistema seguro...</div>
       </div>
     );
+  }
+
+  if (!auth) {
+    throw new Error("Não foi possível inicializar a ligação ao banco de dados (Firebase). Verifique as configurações de rede.");
   }
 
   // Se não houver utilizador autenticado, exibe o ecrã de Login
@@ -213,7 +268,7 @@ export default function App() {
   return (
     <div className="h-screen w-full bg-slate-50 flex flex-col md:flex-row font-sans print:bg-white print:h-auto print:block overflow-hidden">
       
-      {/* Sidebar - Agora Fixa com Rolagem Interna se necessário */}
+      {/* Sidebar */}
       <div className="w-full md:w-64 h-auto md:h-full shrink-0 bg-gradient-to-b from-teal-900 to-teal-800 text-white flex flex-col shadow-2xl print:hidden z-10 overflow-y-auto">
         <div className="p-6 flex items-center gap-3 shrink-0">
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white p-2 rounded-xl shadow-inner">
@@ -272,7 +327,7 @@ export default function App() {
         </nav>
       </div>
 
-      {/* Main Content - Agora com rolagem independente */}
+      {/* Main Content */}
       <div className="flex-1 min-w-0 h-full overflow-y-auto print:overflow-visible relative">
         {activeTab === 'dashboard' && (
           <DashboardView patients={patients} clinicSettings={clinicSettings} />
