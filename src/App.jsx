@@ -30,7 +30,7 @@ import {
   Mail
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 // --- PROTEÇÃO DE ERROS ---
@@ -51,7 +51,7 @@ class ErrorBoundary extends React.Component {
               <AlertCircle size={32} />
             </div>
             <h1 className="text-2xl font-bold text-slate-800 mb-2">Erro no Sistema</h1>
-            <p className="text-slate-600 mb-6">Ocorreu um problema técnico que impediu o carregamento da aplicação.</p>
+            <p className="text-slate-600 mb-6">Ocorreu um problema técnico.</p>
             <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-left">
               <p className="text-xs font-bold text-red-800 mb-1">DETALHES DO ERRO:</p>
               <p className="text-sm font-mono text-red-600 break-words">{this.state.errorMsg}</p>
@@ -64,18 +64,16 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Firebase Setup (Banco de Dados em Nuvem do Ricardo)
+// Firebase Setup
 let app, auth, db;
 try {
-  const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    // Chave montada via Array para evitar alertas do GitHub
+  const firebaseConfig = {
     apiKey: ['AIzaSyAqSA-', 'lIzEFJTh5wyqd41wCAx_rC4zPhHk'].join(''),
     authDomain: "odontosys-48fba.firebaseapp.com",
     projectId: "odontosys-48fba",
     storageBucket: "odontosys-48fba.firebasestorage.app",
     messagingSenderId: "729466626174",
-    appId: "1:729466626174:web:3eb38672e10792658ab82f",
-    measurementId: "G-M0WYJCXG1K"
+    appId: "1:729466626174:web:3eb38672e10792658ab82f"
   };
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
@@ -84,15 +82,12 @@ try {
   console.error("Erro ao inicializar Firebase:", error);
 }
 
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'odontosys-web';
-
 const TEMPLATES = {
   pendencia: "Olá {nome}, tudo bem? Notamos que há uma pendência financeira em seu prontuário. Por favor, entre em contato conosco para regularizarmos a situação. Obrigado!",
   agendamento: "Olá {nome}! Já faz um tempo desde a sua última consulta. Que tal agendarmos uma avaliação de retorno para manter seu sorriso em dia?",
   campanha: "Olá {nome}! [Sua mensagem personalizada aqui]"
 };
 
-// Componente Principal Envolvido na Proteção de Erros
 export default function AppWrapper() {
   return (
     <ErrorBoundary>
@@ -107,35 +102,23 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [patients, setPatients] = useState([]);
   
-  // Settings State
   const [clinicSettings, setClinicSettings] = useState({
     doctorName: 'Dr. Ricardo Bustamante Soria Jr.',
     cro: 'CROSP 44248',
     phone: '(15) 99758-6718',
     address: 'Rua Segundo Lopes Carmona, 135, Centro, Votorantim - SP',
-    logo: '' // Base64 da imagem
+    logo: ''
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  // --- CONEXÃO COM BANCO DE DADOS ---
+  // CONEXÃO COM BANCO DE DADOS
   useEffect(() => {
     if (!auth) {
       setAuthLoading(false);
       return;
     }
-    
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        try {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } catch (e) {
-          console.error("Erro ao usar token:", e);
-        }
-      }
-    };
-    initAuth();
     
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -147,15 +130,16 @@ function App() {
   useEffect(() => {
     if (!user || !db) return;
     
-    const patientsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
+    // Caminho simplificado para o banco de dados
+    const patientsRef = collection(db, 'clinicas', user.uid, 'pacientes');
     const unsubscribePatients = onSnapshot(patientsRef, (snapshot) => {
       const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPatients(patientsData);
     }, (error) => {
-      console.error("Erro ao buscar pacientes:", error);
+      alert(`ERRO DE LEITURA (Aviso ao Programador): ${error.message}`);
     });
 
-    const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general');
+    const settingsRef = doc(db, 'clinicas', user.uid, 'configuracoes', 'geral');
     const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
         setClinicSettings(docSnap.data());
@@ -168,37 +152,57 @@ function App() {
     };
   }, [user]);
 
+  // FUNÇÕES COM ALARMES DE ERRO
   const addPatient = async (patient) => {
     if (!user || !db) return;
-    const newId = Date.now().toString();
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', newId);
-    await setDoc(docRef, patient);
+    try {
+      const newId = Date.now().toString();
+      const docRef = doc(db, 'clinicas', user.uid, 'pacientes', newId);
+      await setDoc(docRef, patient);
+    } catch (error) {
+      alert(`ERRO AO SALVAR PACIENTE: ${error.message}`);
+    }
   };
 
   const updatePatient = async (updatedPatient) => {
     if (!user || !db) return;
-    const dataToSave = { ...updatedPatient };
-    delete dataToSave.id;
-    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', updatedPatient.id);
-    await setDoc(docRef, dataToSave, { merge: true });
+    try {
+      const dataToSave = { ...updatedPatient };
+      delete dataToSave.id;
+      const docRef = doc(db, 'clinicas', user.uid, 'pacientes', updatedPatient.id);
+      await setDoc(docRef, dataToSave, { merge: true });
+    } catch (error) {
+      alert(`ERRO AO ATUALIZAR PACIENTE: ${error.message}`);
+    }
   };
 
   const deletePatient = async (id) => {
     if(window.confirm('Tem certeza que deseja excluir este paciente? Esta ação não pode ser desfeita.')) {
       if (!user || !db) return;
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', id);
-      await deleteDoc(docRef);
+      try {
+        const docRef = doc(db, 'clinicas', user.uid, 'pacientes', id);
+        await deleteDoc(docRef);
+      } catch (error) {
+        alert(`ERRO AO APAGAR PACIENTE: ${error.message}`);
+      }
     }
   };
 
   const handleImport = async (newPatients) => {
     if (!user || !db) return;
-    for (const p of newPatients) {
-       const dataToSave = { ...p };
-       const newId = dataToSave.id || (Date.now().toString() + Math.random().toString(36).substr(2, 9));
-       delete dataToSave.id;
-       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', newId);
-       await setDoc(docRef, dataToSave);
+    try {
+      let count = 0;
+      for (const p of newPatients) {
+         const dataToSave = { ...p };
+         const newId = dataToSave.id || (Date.now().toString() + Math.random().toString(36).substr(2, 9));
+         delete dataToSave.id;
+         const docRef = doc(db, 'clinicas', user.uid, 'pacientes', newId);
+         await setDoc(docRef, dataToSave);
+         count++;
+      }
+      alert(`Sucesso! ${count} pacientes gravados no banco de dados.`);
+    } catch (error) {
+      alert(`ERRO GRAVE NA IMPORTAÇÃO: ${error.message}`);
     }
   };
 
@@ -263,7 +267,7 @@ function App() {
         )}
         {activeTab === 'whatsapp' && <WhatsAppView patients={patients} />}
         {activeTab === 'documentos' && <DocumentsView patients={patients} clinicSettings={clinicSettings} />}
-        {activeTab === 'configuracoes' && <SettingsView clinicSettings={clinicSettings} db={db} user={user} appId={appId} />}
+        {activeTab === 'configuracoes' && <SettingsView clinicSettings={clinicSettings} db={db} user={user} />}
       </div>
 
       {isModalOpen && (
@@ -304,7 +308,7 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
     });
   }, [patients, searchTerm, filterStatus, filterPlano]);
 
-  // --- NOVA FUNÇÃO DE LEITURA DE CSV À PROVA DE BALAS ---
+  // NOVO LEITOR DE CSV (À PROVA DE BALAS)
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -313,55 +317,21 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
     reader.onload = (event) => {
       const text = event.target.result;
       
-      // 1. Normaliza as quebras de linha (Resolve problemas do Excel no Mac/Windows)
-      let normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const separator = normalizedText.split('\n')[0].includes(';') ? ';' : ',';
-
-      // 2. Leitor de CSV inteligente (entende aspas e quebras de linha dentro das células do Excel)
-      const rows = [];
-      let currentRow = [];
-      let currentCell = '';
-      let inQuotes = false;
-
-      for (let i = 0; i < normalizedText.length; i++) {
-          const char = normalizedText[i];
-          if (char === '"' && normalizedText[i+1] === '"') {
-              currentCell += '"'; // Aspas duplas viram uma aspa simples dentro do texto
-              i++;
-          } else if (char === '"') {
-              inQuotes = !inQuotes; // Entra ou sai de aspas
-          } else if (char === separator && !inQuotes) {
-              currentRow.push(currentCell.trim()); // Fim da célula
-              currentCell = '';
-          } else if (char === '\n' && !inQuotes) {
-              currentRow.push(currentCell.trim()); // Fim da linha
-              rows.push(currentRow);
-              currentRow = [];
-              currentCell = '';
-          } else {
-              currentCell += char;
-          }
-      }
+      // Lida com quebras de linha do Windows (\r\n), Mac Antigo (\r) e Mac Novo/Linux (\n)
+      const lines = text.split(/\r?\n|\r/);
       
-      // Adiciona a última linha caso o arquivo não termine com quebra de linha
-      if (currentCell || currentRow.length > 0) {
-          currentRow.push(currentCell.trim());
-          rows.push(currentRow);
-      }
-
-      // 3. Processar e Importar
-      if(rows.length > 1) {
-        // Normaliza os cabeçalhos para evitar erros com acentos ou espaços
-        const headers = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      if(lines.length > 1) {
+        const separator = lines[0].includes(';') ? ';' : ',';
+        const headers = lines[0].split(separator).map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
         const newPatients = [];
         
-        for(let i = 1; i < rows.length; i++) {
-          const values = rows[i];
-          if(values.length < 2 && !values[0]) continue; // Ignora linhas completamente vazias
+        for(let i = 1; i < lines.length; i++) {
+          if(!lines[i].trim()) continue;
           
-          // Gera um ID garantidamente único no banco de dados para evitar sobreposição
-          const uniqueId = Date.now().toString() + Math.random().toString(36).substr(2, 9) + i;
-          let p = { id: uniqueId, status: 'Ativo' };
+          // Separa as colunas respeitando o separador
+          const values = lines[i].split(separator).map(v => v.replace(/^"|"$/g, '').trim());
+          
+          let p = { id: Date.now().toString() + i, status: 'Ativo' };
           
           headers.forEach((h, index) => {
             let val = values[index];
@@ -388,23 +358,22 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             if(h.includes('cidade')) p.cidade = val;
             if(h.includes('email')) p.email = val;
             if(h.includes('profis')) p.profissao = val;
-            if(h.includes('plano') || h.includes('convenio')) p.plano = val;
+            if(h.includes('plano') || h.includes('conven')) p.plano = val;
             if(h.includes('obs')) p.obs = val;
           });
           
           if(p.nome) newPatients.push(p);
         }
         
-        if(newPatients.length > 0) {
+        if (newPatients.length > 0) {
           onImport(newPatients);
-          alert(`${newPatients.length} pacientes importados com sucesso! A aguardar gravação na nuvem...`);
         } else {
-          alert("Aviso: Nenhum paciente válido foi lido. O arquivo pode estar vazio ou a coluna principal 'Nome' não foi reconhecida.");
+          alert("O sistema não conseguiu encontrar nomes válidos na planilha. Verifique se o arquivo tem cabeçalhos.");
         }
       }
     };
     reader.readAsText(file);
-    e.target.value = null; // Reseta o input para permitir enviar o mesmo arquivo novamente
+    e.target.value = null;
   };
 
   const handleExportCSV = () => {
@@ -421,10 +390,10 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
         p.status || '', p.nascimento || '', p.cpf || '', p.endereco || '',
         p.bairro || '', p.cidade || '', p.email || '', p.profissao || '', p.plano || '',
         (p.obs || '').replace(/"/g, '""')
-      ].map(value => `"${value}"`).join(','); 
+      ].map(value => `"${value}"`).join(';'); // Exportando em formato ; para excel PT-BR
     });
 
-    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const csvContent = [headers.join(';'), ...csvRows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1581,7 +1550,7 @@ function DocumentsView({ patients, clinicSettings }) {
 // ==========================================
 // SETTINGS VIEW (CONFIGURAÇÕES DA CLÍNICA)
 // ==========================================
-function SettingsView({ clinicSettings, db, user, appId }) {
+function SettingsView({ clinicSettings, db, user }) {
   const [formData, setFormData] = useState(clinicSettings);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
@@ -1605,12 +1574,11 @@ function SettingsView({ clinicSettings, db, user, appId }) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general');
+      const settingsRef = doc(db, 'clinicas', user.uid, 'configuracoes', 'geral');
       await setDoc(settingsRef, formData, { merge: true });
       alert("Configurações salvas com sucesso!");
     } catch (error) {
-      console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar as configurações.");
+      alert(`ERRO AO SALVAR CONFIGURAÇÕES: ${error.message}`);
     }
     setIsSaving(false);
   };
@@ -1700,7 +1668,6 @@ function AuthScreen({ auth }) {
         await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (err) {
-      console.error(err);
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
         setError('E-mail ou palavra-passe incorretos.');
       } else if (err.code === 'auth/email-already-in-use') {
@@ -1709,8 +1676,6 @@ function AuthScreen({ auth }) {
         setError('A palavra-passe deve ter pelo menos 6 caracteres.');
       } else if (err.code === 'auth/invalid-email') {
         setError('Formato de e-mail inválido.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('Erro: O registo por E-mail/Palavra-passe não está ativado no Firebase. Vá a Authentication > Sign-in method e ative esta opção.');
       } else {
         setError('Erro técnico: ' + err.message);
       }
