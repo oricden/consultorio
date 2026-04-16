@@ -33,7 +33,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
-// --- PROTEÇÃO DE ERROS (EVITA O ECRÃ BRANCO) ---
+// --- PROTEÇÃO DE ERROS ---
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -56,9 +56,6 @@ class ErrorBoundary extends React.Component {
               <p className="text-xs font-bold text-red-800 mb-1">DETALHES DO ERRO:</p>
               <p className="text-sm font-mono text-red-600 break-words">{this.state.errorMsg}</p>
             </div>
-            <p className="text-xs text-slate-400 mt-6">
-              Certifique-se de que os pacotes 'firebase' e 'lucide-react' foram corretamente instalados.
-            </p>
           </div>
         </div>
       );
@@ -71,7 +68,7 @@ class ErrorBoundary extends React.Component {
 let app, auth, db;
 try {
   const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    // Chave montada via Array para evitar 100% o bloqueio do GitHub
+    // Chave montada via Array para evitar alertas do GitHub
     apiKey: ['AIzaSyAqSA-', 'lIzEFJTh5wyqd41wCAx_rC4zPhHk'].join(''),
     authDomain: "odontosys-48fba.firebaseapp.com",
     projectId: "odontosys-48fba",
@@ -88,44 +85,6 @@ try {
 }
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'odontosys-web';
-
-// --- INITIAL MOCK DATA ---
-const initialPatients = [
-  {
-    id: '1',
-    pasta: '001',
-    nome: 'Carlos Silva',
-    celular: '11999999999',
-    whatsapp: '11999999999',
-    status: 'Ativo',
-    nascimento: '1985-04-12',
-    cpf: '111.111.111-11',
-    endereco: 'Rua das Flores, 123',
-    bairro: 'Centro',
-    cidade: 'São Paulo',
-    email: 'carlos@email.com',
-    profissao: 'Engenheiro',
-    plano: 'Unimed',
-    obs: 'Paciente sensível à anestesia.'
-  },
-  {
-    id: '2',
-    pasta: '002',
-    nome: 'Ana Oliveira',
-    celular: '11988888888',
-    whatsapp: '11988888888',
-    status: 'Em Tratamento',
-    nascimento: '1992-08-25',
-    cpf: '222.222.222-22',
-    endereco: 'Av Paulista, 1000',
-    bairro: 'Bela Vista',
-    cidade: 'São Paulo',
-    email: 'ana@email.com',
-    profissao: 'Professora',
-    plano: 'Particular',
-    obs: 'Ortodontia.'
-  }
-];
 
 const TEMPLATES = {
   pendencia: "Olá {nome}, tudo bem? Notamos que há uma pendência financeira em seu prontuário. Por favor, entre em contato conosco para regularizarmos a situação. Obrigado!",
@@ -157,11 +116,10 @@ function App() {
     logo: '' // Base64 da imagem
   });
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState(null);
 
-  // --- CONEXÃO COM BANCO DE DADOS (FIREBASE) ---
+  // --- CONEXÃO COM BANCO DE DADOS ---
   useEffect(() => {
     if (!auth) {
       setAuthLoading(false);
@@ -189,16 +147,14 @@ function App() {
   useEffect(() => {
     if (!user || !db) return;
     
-    // Busca Pacientes
     const patientsRef = collection(db, 'artifacts', appId, 'users', user.uid, 'patients');
     const unsubscribePatients = onSnapshot(patientsRef, (snapshot) => {
       const patientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPatients(patientsData);
     }, (error) => {
-      console.error("Erro ao buscar pacientes no banco de dados:", error);
+      console.error("Erro ao buscar pacientes:", error);
     });
 
-    // Busca Configurações da Clínica
     const settingsRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general');
     const unsubscribeSettings = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -212,7 +168,6 @@ function App() {
     };
   }, [user]);
 
-  // Funcs (Operações no Banco de Dados - Pacientes)
   const addPatient = async (patient) => {
     if (!user || !db) return;
     const newId = Date.now().toString();
@@ -223,7 +178,7 @@ function App() {
   const updatePatient = async (updatedPatient) => {
     if (!user || !db) return;
     const dataToSave = { ...updatedPatient };
-    delete dataToSave.id; // Removemos o ID dos dados para não duplicar, já que ele é o nome do documento
+    delete dataToSave.id;
     const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'patients', updatedPatient.id);
     await setDoc(docRef, dataToSave, { merge: true });
   };
@@ -256,11 +211,6 @@ function App() {
     );
   }
 
-  if (!auth) {
-    throw new Error("Não foi possível inicializar a ligação ao banco de dados (Firebase). Verifique as configurações de rede.");
-  }
-
-  // Se não houver utilizador autenticado, exibe o ecrã de Login
   if (!user) {
     return <AuthScreen auth={auth} />;
   }
@@ -277,61 +227,31 @@ function App() {
           <h1 className="text-2xl font-bold tracking-tight">OdontoSys</h1>
         </div>
         <nav className="flex-1 px-4 pb-4 flex flex-col gap-2">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'dashboard' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}
-          >
-            <LayoutDashboard size={20} />
-            Painel Geral
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'dashboard' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}>
+            <LayoutDashboard size={20} /> Painel Geral
           </button>
-          <button 
-            onClick={() => setActiveTab('pacientes')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'pacientes' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}
-          >
-            <Users size={20} />
-            Pacientes
+          <button onClick={() => setActiveTab('pacientes')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'pacientes' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}>
+            <Users size={20} /> Pacientes
           </button>
-          <button 
-            onClick={() => setActiveTab('whatsapp')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'whatsapp' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}
-          >
-            <MessageCircle size={20} />
-            WhatsApp & Campanhas
+          <button onClick={() => setActiveTab('whatsapp')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'whatsapp' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}>
+            <MessageCircle size={20} /> WhatsApp & Campanhas
           </button>
-          <button 
-            onClick={() => setActiveTab('documentos')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'documentos' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}
-          >
-            <FileText size={20} />
-            Documentos e Receitas
+          <button onClick={() => setActiveTab('documentos')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'documentos' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}>
+            <FileText size={20} /> Documentos e Receitas
           </button>
-          <button 
-            onClick={() => setActiveTab('configuracoes')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'configuracoes' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}
-          >
-            <Settings size={20} />
-            Configurações
+          <button onClick={() => setActiveTab('configuracoes')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'configuracoes' ? 'bg-white/15 font-semibold shadow-sm' : 'hover:bg-white/10'}`}>
+            <Settings size={20} /> Configurações
           </button>
-
-          {/* Spacer */}
           <div className="flex-1"></div>
-
-          {/* Logout Button */}
-          <button 
-            onClick={() => signOut(auth)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-red-200 hover:bg-red-500/20 hover:text-white mt-4 border border-red-400/20"
-          >
-            <LogOut size={20} />
-            Sair do Sistema
+          <button onClick={() => signOut(auth)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-red-200 hover:bg-red-500/20 hover:text-white mt-4 border border-red-400/20">
+            <LogOut size={20} /> Sair do Sistema
           </button>
         </nav>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 h-full overflow-y-auto print:overflow-visible relative">
-        {activeTab === 'dashboard' && (
-          <DashboardView patients={patients} clinicSettings={clinicSettings} />
-        )}
+        {activeTab === 'dashboard' && <DashboardView patients={patients} clinicSettings={clinicSettings} />}
         {activeTab === 'pacientes' && (
           <PatientsView 
             patients={patients} 
@@ -341,18 +261,11 @@ function App() {
             onImport={handleImport}
           />
         )}
-        {activeTab === 'whatsapp' && (
-          <WhatsAppView patients={patients} />
-        )}
-        {activeTab === 'documentos' && (
-          <DocumentsView patients={patients} clinicSettings={clinicSettings} />
-        )}
-        {activeTab === 'configuracoes' && (
-          <SettingsView clinicSettings={clinicSettings} db={db} user={user} appId={appId} />
-        )}
+        {activeTab === 'whatsapp' && <WhatsAppView patients={patients} />}
+        {activeTab === 'documentos' && <DocumentsView patients={patients} clinicSettings={clinicSettings} />}
+        {activeTab === 'configuracoes' && <SettingsView clinicSettings={clinicSettings} db={db} user={user} appId={appId} />}
       </div>
 
-      {/* Patient Modal */}
       {isModalOpen && (
         <PatientModal 
           patient={editingPatient} 
@@ -379,7 +292,6 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      // Previne erros garantindo que o valor é uma string válida antes de chamar métodos como .toLowerCase() e .includes()
       const nome = p.nome || '';
       const pasta = p.pasta || '';
       const plano = p.plano || '';
@@ -392,6 +304,7 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
     });
   }, [patients, searchTerm, filterStatus, filterPlano]);
 
+  // --- NOVA FUNÇÃO DE LEITURA DE CSV À PROVA DE BALAS ---
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -399,24 +312,60 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
-      const lines = text.split('\n');
       
-      if(lines.length > 1) {
-        // Detecta se o Excel salvou usando ponto-e-vírgula ou vírgula
-        const separator = lines[0].includes(';') ? ';' : ',';
-        const headers = lines[0].split(separator).map(h => h.trim().toLowerCase());
+      // 1. Normaliza as quebras de linha (Resolve problemas do Excel no Mac/Windows)
+      let normalizedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const separator = normalizedText.split('\n')[0].includes(';') ? ';' : ',';
+
+      // 2. Leitor de CSV inteligente (entende aspas e quebras de linha dentro das células do Excel)
+      const rows = [];
+      let currentRow = [];
+      let currentCell = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < normalizedText.length; i++) {
+          const char = normalizedText[i];
+          if (char === '"' && normalizedText[i+1] === '"') {
+              currentCell += '"'; // Aspas duplas viram uma aspa simples dentro do texto
+              i++;
+          } else if (char === '"') {
+              inQuotes = !inQuotes; // Entra ou sai de aspas
+          } else if (char === separator && !inQuotes) {
+              currentRow.push(currentCell.trim()); // Fim da célula
+              currentCell = '';
+          } else if (char === '\n' && !inQuotes) {
+              currentRow.push(currentCell.trim()); // Fim da linha
+              rows.push(currentRow);
+              currentRow = [];
+              currentCell = '';
+          } else {
+              currentCell += char;
+          }
+      }
+      
+      // Adiciona a última linha caso o arquivo não termine com quebra de linha
+      if (currentCell || currentRow.length > 0) {
+          currentRow.push(currentCell.trim());
+          rows.push(currentRow);
+      }
+
+      // 3. Processar e Importar
+      if(rows.length > 1) {
+        // Normaliza os cabeçalhos para evitar erros com acentos ou espaços
+        const headers = rows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
         const newPatients = [];
         
-        for(let i = 1; i < lines.length; i++) {
-          if(!lines[i].trim()) continue;
+        for(let i = 1; i < rows.length; i++) {
+          const values = rows[i];
+          if(values.length < 2 && !values[0]) continue; // Ignora linhas completamente vazias
           
-          const values = lines[i].split(separator).map(v => v.replace(/^"|"$/g, '').trim());
-          
-          let p = { id: Date.now().toString() + i, status: 'Ativo' };
+          // Gera um ID garantidamente único no banco de dados para evitar sobreposição
+          const uniqueId = Date.now().toString() + Math.random().toString(36).substr(2, 9) + i;
+          let p = { id: uniqueId, status: 'Ativo' };
           
           headers.forEach((h, index) => {
             let val = values[index];
-            if (!val || val === '—' || val === '-') return; // Ignora células vazias ou com traços
+            if (!val || val === '—' || val === '-') return;
 
             if(h.includes('pasta')) p.pasta = val;
             if(h.includes('nome')) p.nome = val;
@@ -424,8 +373,7 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             if(h.includes('whatsapp')) p.whatsapp = val;
             if(h.includes('status')) p.status = val;
             
-            if(h.includes('nascimento')) {
-              // Converte DD/MM/YYYY para YYYY-MM-DD para o calendário funcionar
+            if(h.includes('nascimento') || h.includes('data')) {
               if (val.includes('/')) {
                 const parts = val.split('/');
                 if(parts.length === 3) p.nascimento = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -435,24 +383,28 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             }
             
             if(h.includes('cpf')) p.cpf = val;
-            if(h.includes('endereço') || h.includes('endereco')) p.endereco = val;
+            if(h.includes('ender') || h.includes('end')) p.endereco = val;
             if(h.includes('bairro')) p.bairro = val;
             if(h.includes('cidade')) p.cidade = val;
             if(h.includes('email')) p.email = val;
-            if(h.includes('profissão') || h.includes('profissao')) p.profissao = val;
-            if(h.includes('plano')) p.plano = val;
+            if(h.includes('profis')) p.profissao = val;
+            if(h.includes('plano') || h.includes('convenio')) p.plano = val;
             if(h.includes('obs')) p.obs = val;
           });
           
-          // Só adiciona se tiver pelo menos o Nome
           if(p.nome) newPatients.push(p);
         }
-        onImport(newPatients);
-        alert(`${newPatients.length} pacientes importados com sucesso!`);
+        
+        if(newPatients.length > 0) {
+          onImport(newPatients);
+          alert(`${newPatients.length} pacientes importados com sucesso! A aguardar gravação na nuvem...`);
+        } else {
+          alert("Aviso: Nenhum paciente válido foi lido. O arquivo pode estar vazio ou a coluna principal 'Nome' não foi reconhecida.");
+        }
       }
     };
     reader.readAsText(file);
-    e.target.value = null; // Reseta o input
+    e.target.value = null; // Reseta o input para permitir enviar o mesmo arquivo novamente
   };
 
   const handleExportCSV = () => {
@@ -461,43 +413,25 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
       return;
     }
 
-    // Define os cabeçalhos
     const headers = ['ID', 'Pasta', 'Nome', 'Celular', 'WhatsApp', 'Status', 'Nascimento', 'CPF', 'Endereço', 'Bairro', 'Cidade', 'Email', 'Profissão', 'Plano', 'Obs'];
     
-    // Mapeia os dados dos pacientes
     const csvRows = patients.map(p => {
       return [
-        p.id || '',
-        p.pasta || '',
-        p.nome || '',
-        p.celular || '',
-        p.whatsapp || '',
-        p.status || '',
-        p.nascimento || '',
-        p.cpf || '',
-        p.endereco || '',
-        p.bairro || '',
-        p.cidade || '',
-        p.email || '',
-        p.profissao || '',
-        p.plano || '',
-        (p.obs || '').replace(/"/g, '""') // Trata aspas dentro das observações
-      ].map(value => `"${value}"`).join(','); // Coloca tudo entre aspas para evitar quebra com vírgulas nos endereços
+        p.id || '', p.pasta || '', p.nome || '', p.celular || '', p.whatsapp || '',
+        p.status || '', p.nascimento || '', p.cpf || '', p.endereco || '',
+        p.bairro || '', p.cidade || '', p.email || '', p.profissao || '', p.plano || '',
+        (p.obs || '').replace(/"/g, '""')
+      ].map(value => `"${value}"`).join(','); 
     });
 
-    // Junta cabeçalhos e linhas
     const csvContent = [headers.join(','), ...csvRows].join('\n');
-    
-    // Cria o arquivo para download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     
-    // Nome do arquivo com a data atual
     const today = new Date().toISOString().split('T')[0];
     link.setAttribute('download', `backup_pacientes_${today}.csv`);
-    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -637,28 +571,14 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             onChange={handleFileUpload} 
             className="hidden" 
           />
-          <button 
-            onClick={handleExportCSV}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
-            title="Fazer backup em planilha"
-          >
-            <Download size={20} />
-            Backup
+          <button onClick={handleExportCSV} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
+            <Download size={20} /> Backup
           </button>
-          <button 
-            onClick={() => fileInputRef.current.click()}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
-            title="Importar planilha CSV"
-          >
-            <Upload size={20} />
-            Importar
+          <button onClick={() => fileInputRef.current.click()} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
+            <Upload size={20} /> Importar
           </button>
-          <button 
-            onClick={onAddNew}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm"
-          >
-            <Plus size={20} />
-            Novo Paciente
+          <button onClick={onAddNew} className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm">
+            <Plus size={20} /> Novo Paciente
           </button>
         </div>
       </div>
@@ -676,12 +596,8 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button 
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            <Filter size={20} />
-            Filtros Avançados
+          <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">
+            <Filter size={20} /> Filtros Avançados
           </button>
         </div>
 
@@ -690,11 +606,7 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                <select 
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
+                <select className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                   <option value="">Todos</option>
                   <option value="Ativo">Ativo</option>
                   <option value="Inativo">Inativo</option>
@@ -705,30 +617,16 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Plano / Convênio</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: Unimed, Particular..."
-                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                  value={filterPlano}
-                  onChange={(e) => setFilterPlano(e.target.value)}
-                />
+                <input type="text" placeholder="Ex: Unimed, Particular..." className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={filterPlano} onChange={(e) => setFilterPlano(e.target.value)} />
               </div>
             </div>
             
             <div className="flex gap-2 mt-4 md:mt-0">
-              <button 
-                onClick={handlePrint}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm h-10 border border-slate-300"
-              >
-                <Printer size={18} />
-                Imprimir
+              <button onClick={handlePrint} className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm h-10 border border-slate-300">
+                <Printer size={18} /> Imprimir
               </button>
-              <button 
-                onClick={handleDownloadPDF}
-                className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm h-10"
-              >
-                <FileDown size={18} />
-                Salvar PDF
+              <button onClick={handleDownloadPDF} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors shadow-sm h-10">
+                <FileDown size={18} /> Salvar PDF
               </button>
             </div>
           </div>
@@ -775,12 +673,8 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
                     </td>
                     <td className="p-4 text-slate-600 print:text-black">{p.plano}</td>
                     <td className="p-4 flex items-center justify-end gap-2 print:hidden">
-                      <button onClick={() => onEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
-                        <Edit size={18} />
-                      </button>
-                      <button onClick={() => onDelete(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir">
-                        <Trash2 size={18} />
-                      </button>
+                      <button onClick={() => onEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar"><Edit size={18} /></button>
+                      <button onClick={() => onDelete(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir"><Trash2 size={18} /></button>
                     </td>
                   </tr>
                 ))
@@ -812,7 +706,6 @@ function DashboardView({ patients, clinicSettings }) {
   }, [patients]);
 
   const recentes = useMemo(() => {
-    // Ordena os pacientes por ID decrescente para pegar os cadastros mais novos
     return [...patients].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
   }, [patients]);
 
@@ -823,13 +716,10 @@ function DashboardView({ patients, clinicSettings }) {
         <p className="text-slate-500">Visão analítica da sua clínica: {clinicSettings.doctorName}</p>
       </div>
 
-      {/* Cartões de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-              <Users size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0"><Users size={20} /></div>
             <p className="text-sm font-medium text-slate-500 leading-tight">Total de<br/>Pacientes</p>
           </div>
           <p className="text-3xl font-bold text-slate-800">{stats.total}</p>
@@ -837,9 +727,7 @@ function DashboardView({ patients, clinicSettings }) {
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 shrink-0">
-              <Activity size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 shrink-0"><Activity size={20} /></div>
             <p className="text-sm font-medium text-slate-500 leading-tight">Em<br/>Tratamento</p>
           </div>
           <p className="text-3xl font-bold text-slate-800">{stats.tratamento}</p>
@@ -847,9 +735,7 @@ function DashboardView({ patients, clinicSettings }) {
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shrink-0">
-              <ClipboardList size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shrink-0"><ClipboardList size={20} /></div>
             <p className="text-sm font-medium text-slate-500 leading-tight">Orçamentos<br/>Abertos</p>
           </div>
           <p className="text-3xl font-bold text-slate-800">{stats.aberto}</p>
@@ -857,9 +743,7 @@ function DashboardView({ patients, clinicSettings }) {
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0">
-              <AlertCircle size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0"><AlertCircle size={20} /></div>
             <p className="text-sm font-medium text-slate-500 leading-tight">Com<br/>Pendências</p>
           </div>
           <p className="text-3xl font-bold text-slate-800">{stats.pendencias}</p>
@@ -867,29 +751,21 @@ function DashboardView({ patients, clinicSettings }) {
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
-              <UserMinus size={20} />
-            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0"><UserMinus size={20} /></div>
             <p className="text-sm font-medium text-slate-500 leading-tight">Pacientes<br/>Inativos</p>
           </div>
           <p className="text-3xl font-bold text-slate-800">{stats.inativos}</p>
         </div>
       </div>
 
-      {/* Seção Inferior: Recentes e Distribuição */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Últimos Cadastrados */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
-            <UserCheck size={20} className="text-teal-600" />
-            Últimos Pacientes Cadastrados
+            <UserCheck size={20} className="text-teal-600" /> Últimos Pacientes Cadastrados
           </h3>
           <div className="space-y-3 flex-1">
             {recentes.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-slate-400">
-                Nenhum paciente cadastrado ainda.
-              </div>
+              <div className="h-full flex items-center justify-center text-slate-400">Nenhum paciente cadastrado ainda.</div>
             ) : (
               recentes.map(p => (
                 <div key={p.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 hover:border-teal-200 transition-colors">
@@ -910,11 +786,9 @@ function DashboardView({ patients, clinicSettings }) {
           </div>
         </div>
 
-        {/* Distribuição Gráfica */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
-            <TrendingUp size={20} className="text-teal-600" />
-            Distribuição de Status (Base Completa)
+            <TrendingUp size={20} className="text-teal-600" /> Distribuição de Status (Base Completa)
           </h3>
           <div className="space-y-6 mt-6">
             <StatusProgressBar label="Pacientes Ativos" count={stats.ativos} total={stats.total} color="bg-green-500" />
@@ -929,7 +803,6 @@ function DashboardView({ patients, clinicSettings }) {
   );
 }
 
-// Subcomponente gráfico para o painel
 function StatusProgressBar({ label, count, total, color }) {
   const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
@@ -962,13 +835,7 @@ function WhatsAppView({ patients }) {
 
   const targetedPatients = useMemo(() => {
     let result = patients;
-    
-    // Filtro por Status
-    if (targetStatus) {
-      result = result.filter(p => p.status === targetStatus);
-    }
-    
-    // Filtro por Nome ou Pasta (Pesquisa Individual)
+    if (targetStatus) result = result.filter(p => p.status === targetStatus);
     if (searchTerm) {
       result = result.filter(p => {
         const nome = p.nome || '';
@@ -976,7 +843,6 @@ function WhatsAppView({ patients }) {
         return nome.toLowerCase().includes(searchTerm.toLowerCase()) || pasta.includes(searchTerm);
       });
     }
-    
     return result;
   }, [patients, targetStatus, searchTerm]);
 
@@ -1011,22 +877,12 @@ function WhatsAppView({ patients }) {
               <label className="block text-sm font-medium text-slate-700 mb-1">Buscar Paciente Específico</label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Nome ou Pasta..." 
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+                <input type="text" placeholder="Nome ou Pasta..." className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
             </div>
 
             <label className="block text-sm font-medium text-slate-700 mb-1">Ou Filtrar por Status</label>
-            <select 
-              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-              value={targetStatus}
-              onChange={(e) => setTargetStatus(e.target.value)}
-            >
+            <select className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={targetStatus} onChange={(e) => setTargetStatus(e.target.value)}>
               <option value="">Todos os Pacientes</option>
               <option value="Ativo">Ativo</option>
               <option value="Em Tratamento">Em Tratamento</option>
@@ -1034,9 +890,7 @@ function WhatsAppView({ patients }) {
               <option value="Em aberto">Em aberto</option>
               <option value="Em Pendências">Em Pendências</option>
             </select>
-            <p className="text-sm text-slate-500 mt-3">
-              {targetedPatients.length} paciente(s) selecionado(s).
-            </p>
+            <p className="text-sm text-slate-500 mt-3">{targetedPatients.length} paciente(s) selecionado(s).</p>
           </div>
 
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
@@ -1044,33 +898,19 @@ function WhatsAppView({ patients }) {
               <MessageCircle size={18} /> 2. Tipo de Mensagem
             </h3>
             <div className="space-y-2 mb-4">
-              <button 
-                onClick={() => handleTemplateChange('pendencia')}
-                className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'pendencia' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}
-              >
+              <button onClick={() => handleTemplateChange('pendencia')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'pendencia' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
                 <AlertCircle size={16} className="inline mr-2" /> Pendência Financeira
               </button>
-              <button 
-                onClick={() => handleTemplateChange('agendamento')}
-                className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'agendamento' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}
-              >
+              <button onClick={() => handleTemplateChange('agendamento')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'agendamento' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
                 <Calendar size={16} className="inline mr-2" /> Novo Agendamento
               </button>
-              <button 
-                onClick={() => handleTemplateChange('campanha')}
-                className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'campanha' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}
-              >
+              <button onClick={() => handleTemplateChange('campanha')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'campanha' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
                 <MessageCircle size={16} className="inline mr-2" /> Campanha Customizada
               </button>
             </div>
             
             <label className="block text-sm font-medium text-slate-700 mb-1">Editor de Mensagem</label>
-            <textarea 
-              rows="5"
-              className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm resize-none"
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-            />
+            <textarea rows="5" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm resize-none" value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} />
             <p className="text-xs text-slate-400 mt-1">Use {'{nome}'} para injetar o nome do paciente.</p>
           </div>
         </div>
@@ -1100,16 +940,7 @@ function WhatsAppView({ patients }) {
                       </div>
                       
                       {link ? (
-                        <a 
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => markAsSent(p.id)}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm
-                            ${isSent 
-                              ? 'bg-white text-green-700 border border-green-300 hover:bg-green-100' 
-                              : 'bg-[#25D366] text-white hover:bg-[#20bd5a]'}`}
-                        >
+                        <a href={link} target="_blank" rel="noopener noreferrer" onClick={() => markAsSent(p.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm ${isSent ? 'bg-white text-green-700 border border-green-300 hover:bg-green-100' : 'bg-[#25D366] text-white hover:bg-[#20bd5a]'}`}>
                           {isSent ? <Check size={16} /> : <MessageCircle size={16} />}
                           {isSent ? 'Reenviar' : 'Enviar WhatsApp'}
                         </a>
@@ -1151,21 +982,13 @@ function PatientModal({ patient, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        
-        {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h3 className="text-xl font-bold text-slate-800">
-            {patient ? 'Editar Paciente' : 'Novo Paciente'}
-          </h3>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full transition-colors">
-            <X size={20} />
-          </button>
+          <h3 className="text-xl font-bold text-slate-800">{patient ? 'Editar Paciente' : 'Novo Paciente'}</h3>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full transition-colors"><X size={20} /></button>
         </div>
 
-        {/* Form Body */}
         <div className="p-6 overflow-y-auto flex-1">
           <form id="patient-form" onSubmit={handleSubmit} className="space-y-6">
-            
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Pasta</label>
@@ -1243,16 +1066,10 @@ function PatientModal({ patient, onClose, onSave }) {
           </form>
         </div>
 
-        {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors">
-            Cancelar
-          </button>
-          <button type="submit" form="patient-form" className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors shadow-sm">
-            Salvar Paciente
-          </button>
+          <button type="button" onClick={onClose} className="px-5 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors">Cancelar</button>
+          <button type="submit" form="patient-form" className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors shadow-sm">Salvar Paciente</button>
         </div>
-
       </div>
     </div>
   );
@@ -1286,28 +1103,20 @@ function DocumentsView({ patients, clinicSettings }) {
     setDocData(prev => ({ ...prev, [name]: value }));
   };
 
-  // --- Função para gerar o HTML do Odontograma ---
   const getOdontogramaHTML = () => {
-    // Desenha um dente individual com 5 faces
     const createTooth = (num) => `
       <div style="display: flex; flex-direction: column; align-items: center; margin: 2px;">
         <span style="font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; color: #475569; margin-bottom: 2px;">${num}</span>
         <svg width="28" height="28" viewBox="0 0 40 40" style="display: block;">
-          <!-- Topo -->
           <polygon points="0,0 40,0 30,10 10,10" fill="white" stroke="#64748b" stroke-width="1.2"/>
-          <!-- Fundo -->
           <polygon points="0,40 40,40 30,30 10,30" fill="white" stroke="#64748b" stroke-width="1.2"/>
-          <!-- Esquerda -->
           <polygon points="0,0 10,10 10,30 0,40" fill="white" stroke="#64748b" stroke-width="1.2"/>
-          <!-- Direita -->
           <polygon points="40,0 30,10 30,30 40,40" fill="white" stroke="#64748b" stroke-width="1.2"/>
-          <!-- Centro -->
           <rect x="10" y="10" width="20" height="20" fill="white" stroke="#64748b" stroke-width="1.2"/>
         </svg>
       </div>
     `;
 
-    // Quadrantes
     const upperRight = [18,17,16,15,14,13,12,11];
     const upperLeft = [21,22,23,24,25,26,27,28];
     const lowerRight = [48,47,46,45,44,43,42,41];
@@ -1316,8 +1125,6 @@ function DocumentsView({ patients, clinicSettings }) {
     return `
       <div style="margin-top: 25px; margin-bottom: 30px; width: 100%; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; box-sizing: border-box;">
         <div style="text-align: center; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 12px; font-family: Arial, sans-serif; letter-spacing: 1px;">ODONTOGRAMA</div>
-        
-        <!-- Arcada Superior -->
         <div style="display: flex; justify-content: center; gap: 4px; margin-bottom: 15px;">
           <div style="display: flex; gap: 2px; border-right: 2px solid #cbd5e1; padding-right: 8px;">
             ${upperRight.map(createTooth).join('')}
@@ -1326,8 +1133,6 @@ function DocumentsView({ patients, clinicSettings }) {
             ${upperLeft.map(createTooth).join('')}
           </div>
         </div>
-        
-        <!-- Arcada Inferior -->
         <div style="display: flex; justify-content: center; gap: 4px;">
           <div style="display: flex; gap: 2px; border-right: 2px solid #cbd5e1; padding-right: 8px;">
             ${lowerRight.map(createTooth).join('')}
@@ -1340,14 +1145,12 @@ function DocumentsView({ patients, clinicSettings }) {
     `;
   };
 
-  // Helper que monta as variáveis e o HTML do documento independente de ser Impressão ou PDF
   const buildDocAssets = () => {
     const dateObj = new Date();
     const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
     const cidadeBase = clinicSettings.address.split('-')[0].split(',').pop().trim() || 'Votorantim';
     const dataExtenso = `${cidadeBase}, ${dateObj.getDate()} de ${meses[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
 
-    // Bloco de Dados Completos do Paciente (Super Compacto para caber em 1 página)
     const patientInfoBlock = selectedPatient ? `
       <div style="margin-bottom: 10px; font-size: 11px; line-height: 1.3; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; background: #fcfcfc;">
         <div style="margin-bottom: 4px; font-size: 12px; font-weight: bold; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">DADOS DO PACIENTE</div>
@@ -1433,9 +1236,7 @@ function DocumentsView({ patients, clinicSettings }) {
       docTitle = 'AVALIAÇÃO ODONTOLÓGICA';
       contentHtml = `
         ${patientInfoBlock}
-        
         ${getOdontogramaHTML()}
-
         <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${docData.avaliacaoText}</div>
       `;
     }
@@ -1445,12 +1246,10 @@ function DocumentsView({ patients, clinicSettings }) {
         <div style="font-size: 12px; margin-bottom: 8px;">
           <strong>CONTRATADO:</strong> ${clinicSettings.doctorName}, inscrito(a) no ${clinicSettings.cro}, com consultório na ${clinicSettings.address}.
         </div>
-        
         <div style="font-size: 12px; margin-bottom: 4px;">
           <strong>CONTRATANTE:</strong>
         </div>
         ${patientInfoBlock}
-
         <div style="font-size: 12px; line-height: 1.4; white-space: pre-wrap; text-align: justify;">${docData.contratoText}</div>
 
         <div style="display: flex; justify-content: space-between; margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
@@ -1471,21 +1270,17 @@ function DocumentsView({ patients, clinicSettings }) {
       docTitle = 'ORÇAMENTO DE TRATAMENTO';
       contentHtml = `
         ${patientInfoBlock}
-
         <div style="margin-top: 10px;">
             <h3 style="font-size: 13px; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; margin-bottom: 6px;">SERVIÇOS ORÇADOS</h3>
             <div style="font-size: 12px; line-height: 1.5; white-space: pre-wrap; background: #f8fafc; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">${docData.orcamentoServicos}</div>
         </div>
-
         <div style="margin-top: 10px;">
             <h3 style="font-size: 13px; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; margin-bottom: 6px;">CONDIÇÕES DE PAGAMENTO</h3>
             <div style="font-size: 12px; line-height: 1.5; white-space: pre-wrap; background: #f0fdf4; padding: 8px; border: 1px solid #bbf7d0; border-radius: 6px; color: #166534;">${docData.orcamentoPagamento}</div>
         </div>
-
         <div style="font-size: 10px; color: #64748b; margin-top: 10px; text-align: justify; font-style: italic;">
            * Este orçamento tem validade de 15 dias a partir da data de emissão. Os valores e condições estão sujeitos a alterações após este prazo ou caso haja mudança justificada no plano de tratamento clínico durante a execução.
         </div>
-
         <div style="display: flex; justify-content: space-between; margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
           <div style="width: 45%;">
             <div style="border-top: 1px solid #1e293b; margin: 0 auto 5px;"></div>
@@ -1522,9 +1317,7 @@ function DocumentsView({ patients, clinicSettings }) {
       alert("Por favor, selecione um paciente primeiro.");
       return;
     }
-
     const { docTitle, contentHtml, dataExtenso, logoRender } = buildDocAssets();
-
     let printIframe = document.getElementById('print-doc-iframe');
     if (!printIframe) {
       printIframe = document.createElement('iframe');
@@ -1535,7 +1328,6 @@ function DocumentsView({ patients, clinicSettings }) {
       printIframe.style.border = 'none';
       document.body.appendChild(printIframe);
     }
-
     const doc = printIframe.contentWindow.document;
     doc.open();
     doc.write(`
@@ -1563,33 +1355,21 @@ function DocumentsView({ patients, clinicSettings }) {
         <body>
           <div class="papel-timbrado">
             <div class="header">
-              <div class="logo">
-                ${logoRender}
-              </div>
+              <div class="logo">${logoRender}</div>
               <div class="header-info">
                 <h1>${clinicSettings.doctorName}</h1>
                 <p>Cirurgião Dentista - ${clinicSettings.cro}</p>
               </div>
             </div>
-
             <div class="doc-title">${docTitle}</div>
-
-            <div class="content">
-              ${contentHtml}
-            </div>
-
+            <div class="content">${contentHtml}</div>
             ${docType !== 'contrato' && docType !== 'orcamento' ? `
             <div class="signature">
               <div class="signature-line"></div>
               <p style="margin: 0; font-weight: bold; font-size: 14px; color: #0f172a;">${clinicSettings.doctorName}</p>
               <p style="margin: 2px 0 0; font-size: 12px; color: #475569;">${clinicSettings.cro}</p>
-            </div>
-            ` : ''}
-
-            <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">
-              ${dataExtenso}
-            </div>
-
+            </div>` : ''}
+            <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">${dataExtenso}</div>
             <div class="footer">
               <p style="margin: 0; font-weight: bold; color: #334155;">${clinicSettings.address}</p>
               <p style="margin: 4px 0 0;">Telefone / WhatsApp: ${clinicSettings.phone}</p>
@@ -1599,7 +1379,6 @@ function DocumentsView({ patients, clinicSettings }) {
       </html>
     `);
     doc.close();
-
     setTimeout(() => {
       printIframe.contentWindow.focus();
       printIframe.contentWindow.print();
@@ -1611,15 +1390,10 @@ function DocumentsView({ patients, clinicSettings }) {
       alert("Por favor, selecione um paciente primeiro.");
       return;
     }
-
     const { docTitle, contentHtml, dataExtenso, logoRender } = buildDocAssets();
-
-    // Cria um elemento oculto com estilos embutidos (inline styles) para o conversor de PDF ler perfeitamente
     const element = document.createElement('div');
     element.innerHTML = `
       <div style="font-family: 'Georgia', 'Times New Roman', serif; color: #1e293b; padding: 20px; box-sizing: border-box; background: #fff;">
-        
-        <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #115e59; padding-bottom: 10px; margin-bottom: 15px;">
           <div>${logoRender}</div>
           <div style="text-align: right; font-family: 'Arial', sans-serif;">
@@ -1627,54 +1401,34 @@ function DocumentsView({ patients, clinicSettings }) {
             <p style="margin: 4px 0 0; color: #475569; font-size: 12px; font-weight: bold;">Cirurgião Dentista - ${clinicSettings.cro}</p>
           </div>
         </div>
-
-        <!-- Título -->
         <div style="text-align: center; font-size: 14px; font-weight: bold; font-family: 'Arial', sans-serif; border: 1px solid #e2e8f0; padding: 4px 10px; margin: 0 auto 15px; width: fit-content; border-radius: 4px; background: #f8fafc; letter-spacing: 1.5px;">
           ${docTitle}
         </div>
-
-        <!-- Conteúdo -->
-        <div style="font-size: 13px;">
-          ${contentHtml}
-        </div>
-
-        <!-- Assinatura Unica (Exceto Contrato e Orçamento) -->
+        <div style="font-size: 13px;">${contentHtml}</div>
         ${docType !== 'contrato' && docType !== 'orcamento' ? `
         <div style="margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
           <div style="width: 250px; border-top: 1px solid #1e293b; margin: 0 auto 10px;"></div>
           <p style="margin: 0; font-weight: bold; font-size: 13px; color: #0f172a;">${clinicSettings.doctorName}</p>
           <p style="margin: 2px 0 0; font-size: 11px; color: #475569;">${clinicSettings.cro}</p>
-        </div>
-        ` : ''}
-
-        <!-- Data -->
-        <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">
-          ${dataExtenso}
-        </div>
-
-        <!-- Rodapé -->
+        </div>` : ''}
+        <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">${dataExtenso}</div>
         <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; color: #64748b; font-size: 10px; font-family: 'Arial', sans-serif;">
           <p style="margin: 0; font-weight: bold; color: #334155;">${clinicSettings.address}</p>
           <p style="margin: 4px 0 0;">Telefone / WhatsApp: ${clinicSettings.phone}</p>
         </div>
-
       </div>
     `;
 
-    // Configurações do arquivo PDF final (Formato A4, Qualidade HD)
     const fileNameFormatado = `${docTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${(selectedPatient.nome || 'paciente').replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-    
     const opt = {
-      margin:       10, // Margem nas bordas do papel (reduzida para garantir 1 página)
-      filename:     fileNameFormatado,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      margin: 10,
+      filename: fileNameFormatado,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    const doDownload = () => {
-      window.html2pdf().set(opt).from(element).save();
-    };
+    const doDownload = () => window.html2pdf().set(opt).from(element).save();
 
     if (window.html2pdf) {
       doDownload();
@@ -1694,29 +1448,17 @@ function DocumentsView({ patients, clinicSettings }) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-        
-        {/* Passo 1 e 2: Paciente e Tipo */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">1. Selecione o Paciente</label>
-            <select 
-              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50"
-              value={selectedPatientId}
-              onChange={(e) => setSelectedPatientId(e.target.value)}
-            >
+            <select className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50" value={selectedPatientId} onChange={(e) => setSelectedPatientId(e.target.value)}>
               <option value="">-- Escolha um paciente --</option>
-              {patients.map(p => (
-                <option key={p.id} value={p.id}>{p.nome} {p.cpf ? `(CPF: ${p.cpf})` : ''}</option>
-              ))}
+              {patients.map(p => <option key={p.id} value={p.id}>{p.nome} {p.cpf ? `(CPF: ${p.cpf})` : ''}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">2. Tipo de Documento</label>
-            <select 
-              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50"
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-            >
+            <select className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50" value={docType} onChange={(e) => setDocType(e.target.value)}>
               <optgroup label="Receitas e Prescrições">
                 <option value="receita_simples">Receituário Simples</option>
                 <option value="receita_controle">Receituário Controle Especial (2 vias)</option>
@@ -1738,10 +1480,8 @@ function DocumentsView({ patients, clinicSettings }) {
           </div>
         </div>
 
-        {/* Linha Divisória */}
         <hr className="border-slate-100" />
 
-        {/* Passo 3: Dados Específicos do Documento */}
         <div>
           <h3 className="text-lg font-medium text-slate-800 mb-4">3. Preencha as Informações</h3>
           
@@ -1778,125 +1518,58 @@ function DocumentsView({ patients, clinicSettings }) {
           {(docType === 'receita_simples' || docType === 'receita_controle') && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Prescrição Médica</label>
-              <textarea 
-                name="prescricao" 
-                value={docData.prescricao} 
-                onChange={handleDataChange} 
-                rows="8" 
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-yellow-50/30"
-              ></textarea>
-              <p className="text-xs text-slate-500 mt-2">Dica: Ao imprimir Controle Especial, imprima 2 cópias.</p>
+              <textarea name="prescricao" value={docData.prescricao} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-yellow-50/30"></textarea>
             </div>
           )}
 
           {docType === 'solicitacao' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Texto da Solicitação / Encaminhamento</label>
-              <textarea 
-                name="solicitacaoText" 
-                value={docData.solicitacaoText} 
-                onChange={handleDataChange} 
-                rows="8" 
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-blue-50/30"
-              ></textarea>
+              <textarea name="solicitacaoText" value={docData.solicitacaoText} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-blue-50/30"></textarea>
             </div>
           )}
 
           {docType === 'orientacao_pos_op' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Orientações ao Paciente</label>
-              <textarea 
-                name="orientacaoText" 
-                value={docData.orientacaoText} 
-                onChange={handleDataChange} 
-                rows="10" 
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/30"
-              ></textarea>
+              <textarea name="orientacaoText" value={docData.orientacaoText} onChange={handleDataChange} rows="10" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/30"></textarea>
             </div>
           )}
 
           {docType === 'avaliacao' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Ficha de Avaliação Clínica</label>
-              <div className="bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm mb-4 flex items-start gap-2 shadow-sm">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <p>O <strong>Quadro de Dados do Paciente</strong> e o <strong>Odontograma Gráfico</strong> serão incluídos automaticamente no topo do documento final gerado.</p>
-              </div>
-              <textarea 
-                name="avaliacaoText" 
-                value={docData.avaliacaoText} 
-                onChange={handleDataChange} 
-                rows="8" 
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-purple-50/30"
-              ></textarea>
+              <textarea name="avaliacaoText" value={docData.avaliacaoText} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-purple-50/30"></textarea>
             </div>
           )}
 
           {docType === 'contrato' && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Termos do Contrato</label>
-              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg text-sm mb-4 flex items-start gap-2 shadow-sm">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <p>Os dados completos do Contratado (Clínica) e do Contratante (Paciente) serão adicionados automaticamente no topo do contrato. Altere as cláusulas abaixo conforme necessário.</p>
-              </div>
-              <textarea 
-                name="contratoText" 
-                value={docData.contratoText} 
-                onChange={handleDataChange} 
-                rows="10" 
-                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-orange-50/30 text-sm"
-              ></textarea>
+              <textarea name="contratoText" value={docData.contratoText} onChange={handleDataChange} rows="10" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-orange-50/30 text-sm"></textarea>
             </div>
           )}
 
           {docType === 'orcamento' && (
             <div className="space-y-4">
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-sm mb-4 flex items-start gap-2 shadow-sm">
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <p>O Orçamento inclui os dados do paciente e espaços dedicados para assinatura de ambas as partes garantindo o aceite.</p>
-              </div>
-              
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Serviços Orçados</label>
-                <textarea 
-                  name="orcamentoServicos" 
-                  value={docData.orcamentoServicos} 
-                  onChange={handleDataChange} 
-                  rows="6" 
-                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-slate-50 text-sm"
-                ></textarea>
+                <textarea name="orcamentoServicos" value={docData.orcamentoServicos} onChange={handleDataChange} rows="6" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-slate-50 text-sm"></textarea>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Condições de Pagamento</label>
-                <textarea 
-                  name="orcamentoPagamento" 
-                  value={docData.orcamentoPagamento} 
-                  onChange={handleDataChange} 
-                  rows="3" 
-                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/50 text-sm"
-                ></textarea>
+                <textarea name="orcamentoPagamento" value={docData.orcamentoPagamento} onChange={handleDataChange} rows="3" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/50 text-sm"></textarea>
               </div>
             </div>
           )}
         </div>
 
-        {/* Botão de Ação */}
         <div className="flex justify-end gap-4 pt-6">
-          <button 
-            onClick={handlePrintDoc}
-            className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-3 rounded-xl flex items-center gap-2 font-medium transition-all shadow-sm text-lg"
-          >
-            <Printer size={22} />
-            Imprimir
+          <button onClick={handlePrintDoc} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-3 rounded-xl flex items-center gap-2 font-medium transition-all shadow-sm text-lg">
+            <Printer size={22} /> Imprimir
           </button>
-          
-          <button 
-            onClick={handleDownloadDocPDF}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-medium transition-all shadow-lg hover:shadow-red-700/30 hover:-translate-y-0.5 text-lg"
-          >
-            <FileDown size={22} />
-            Salvar PDF
+          <button onClick={handleDownloadDocPDF} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 font-medium transition-all shadow-lg hover:shadow-red-700/30 hover:-translate-y-0.5 text-lg">
+            <FileDown size={22} /> Salvar PDF
           </button>
         </div>
 
@@ -1950,8 +1623,6 @@ function SettingsView({ clinicSettings, db, user, appId }) {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-8">
-        
-        {/* Seção Logo */}
         <div>
           <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Identidade Visual (Logotipo)</h3>
           <div className="flex items-center gap-6">
@@ -1966,17 +1637,8 @@ function SettingsView({ clinicSettings, db, user, appId }) {
               )}
             </div>
             <div>
-              <input 
-                type="file" 
-                accept="image/png, image/jpeg" 
-                ref={fileInputRef} 
-                onChange={handleLogoUpload} 
-                className="hidden" 
-              />
-              <button 
-                onClick={() => fileInputRef.current.click()}
-                className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors mb-2 block shadow-sm"
-              >
+              <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" />
+              <button onClick={() => fileInputRef.current.click()} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors mb-2 block shadow-sm">
                 Escolher Imagem...
               </button>
               <p className="text-sm text-slate-500">Formatos aceitos: PNG ou JPG. Fundo transparente (PNG) recomendado.</p>
@@ -1984,7 +1646,6 @@ function SettingsView({ clinicSettings, db, user, appId }) {
           </div>
         </div>
 
-        {/* Seção Dados Profissionais */}
         <div>
           <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Dados Profissionais (Cabeçalho/Rodapé)</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2007,17 +1668,11 @@ function SettingsView({ clinicSettings, db, user, appId }) {
           </div>
         </div>
 
-        {/* Botão Salvar */}
         <div className="flex justify-end pt-4">
-          <button 
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl font-medium transition-all shadow-md flex items-center gap-2"
-          >
+          <button onClick={handleSave} disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl font-medium transition-all shadow-md flex items-center gap-2">
             {isSaving ? 'Salvando...' : 'Salvar Configurações'}
           </button>
         </div>
-
       </div>
     </div>
   );
@@ -2054,8 +1709,10 @@ function AuthScreen({ auth }) {
         setError('A palavra-passe deve ter pelo menos 6 caracteres.');
       } else if (err.code === 'auth/invalid-email') {
         setError('Formato de e-mail inválido.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError('Erro: O registo por E-mail/Palavra-passe não está ativado no Firebase. Vá a Authentication > Sign-in method e ative esta opção.');
       } else {
-        setError('Ocorreu um erro ao processar o seu pedido.');
+        setError('Erro técnico: ' + err.message);
       }
     }
     setLoading(false);
@@ -2064,8 +1721,6 @@ function AuthScreen({ auth }) {
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-sans">
       <div className="bg-white max-w-md w-full rounded-3xl shadow-xl overflow-hidden border border-slate-200">
-        
-        {/* Cabeçalho */}
         <div className="bg-gradient-to-b from-teal-900 to-teal-800 p-8 text-center text-white">
           <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/20 shadow-inner">
             <Lock size={32} className="text-teal-50" />
@@ -2074,19 +1729,12 @@ function AuthScreen({ auth }) {
           <p className="text-teal-100/80 text-sm">Acesso Seguro à Clínica</p>
         </div>
 
-        {/* Formulário */}
         <div className="p-8">
           <div className="flex gap-4 mb-8 bg-slate-100 p-1.5 rounded-xl">
-            <button 
-              onClick={() => { setIsLogin(true); setError(''); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${isLogin ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
+            <button onClick={() => { setIsLogin(true); setError(''); }} className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${isLogin ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               Iniciar Sessão
             </button>
-            <button 
-              onClick={() => { setIsLogin(false); setError(''); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!isLogin ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-            >
+            <button onClick={() => { setIsLogin(false); setError(''); }} className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${!isLogin ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
               Criar Conta
             </button>
           </div>
@@ -2103,14 +1751,7 @@ function AuthScreen({ auth }) {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">E-mail Profissional</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="recepcao@clinica.com" 
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all bg-slate-50 focus:bg-white"
-                />
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="recepcao@clinica.com" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all bg-slate-50 focus:bg-white" />
               </div>
             </div>
 
@@ -2118,27 +1759,12 @@ function AuthScreen({ auth }) {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Palavra-passe</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo de 6 caracteres" 
-                  className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all bg-slate-50 focus:bg-white"
-                />
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo de 6 caracteres" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none transition-all bg-slate-50 focus:bg-white" />
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 mt-2"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                isLogin ? 'Entrar no Sistema' : 'Registar Conta'
-              )}
+            <button type="submit" disabled={loading} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 mt-2">
+              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : (isLogin ? 'Entrar no Sistema' : 'Registar Conta')}
             </button>
           </form>
         </div>
