@@ -253,7 +253,7 @@ function App() {
   return (
     <div className="h-screen w-full bg-slate-50 flex flex-col md:flex-row font-sans print:bg-white print:h-auto print:block overflow-hidden">
       
-      {/* Sidebar */}
+      {/* Sidebar - Atualizada com Logótipo */}
       <div className="w-full md:w-64 h-auto md:h-full shrink-0 bg-gradient-to-b from-teal-900 to-teal-800 text-white flex flex-col shadow-2xl print:hidden z-10 overflow-y-auto">
         <div className="p-6 flex items-center gap-3 shrink-0">
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white p-2 rounded-xl shadow-inner">
@@ -316,7 +316,7 @@ function App() {
 }
 
 // ==========================================
-// PACIENTES VIEW
+// PACIENTES VIEW - FILTROS CORRIGIDOS E À PROVA DE BALAS
 // ==========================================
 function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -327,11 +327,22 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      const nome = p.nome || '';
-      const pasta = p.pasta || '';
-      const matchName = nome.toLowerCase().includes(searchTerm.toLowerCase()) || pasta.includes(searchTerm);
-      const matchStatus = filterStatus ? p.status === filterStatus : true;
-      const matchPlano = filterPlano ? (p.plano || '').toLowerCase().includes(filterPlano.toLowerCase()) : true;
+      // 1. Normaliza as variáveis (Tudo minúsculo, sem espaços extra nas pontas, lidando com números e nulos)
+      const nome = String(p.nome || '').toLowerCase().trim();
+      const pasta = String(p.pasta || '').toLowerCase().trim();
+      const term = searchTerm.toLowerCase().trim();
+      
+      const pStatus = String(p.status || '').toLowerCase().trim();
+      const fStatus = filterStatus.toLowerCase().trim();
+      
+      const pPlano = String(p.plano || '').toLowerCase().trim();
+      const fPlano = filterPlano.toLowerCase().trim();
+
+      // 2. Comparações infalíveis
+      const matchName = term === '' || nome.includes(term) || pasta.includes(term);
+      const matchStatus = fStatus === '' || pStatus === fStatus;
+      const matchPlano = fPlano === '' || pPlano.includes(fPlano);
+      
       return matchName && matchStatus && matchPlano;
     });
   }, [patients, searchTerm, filterStatus, filterPlano]);
@@ -359,19 +370,19 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
             if(h.includes('celular')) p.celular = val;
             if(h.includes('whatsapp')) p.whatsapp = val;
             if(h.includes('status')) p.status = val;
-            if(h.includes('nascimento')) {
+            if(h.includes('nascimento') || h.includes('data')) {
               if (val.includes('/')) {
                 const parts = val.split('/');
                 if(parts.length === 3) p.nascimento = `${parts[2]}-${parts[1]}-${parts[0]}`;
               } else p.nascimento = val;
             }
             if(h.includes('cpf')) p.cpf = val;
-            if(h.includes('ender')) p.endereco = val;
+            if(h.includes('ender') || h.includes('end')) p.endereco = val;
             if(h.includes('bairro')) p.bairro = val;
             if(h.includes('cidade')) p.cidade = val;
             if(h.includes('email')) p.email = val;
             if(h.includes('profis')) p.profissao = val;
-            if(h.includes('plano')) p.plano = val;
+            if(h.includes('plano') || h.includes('conven')) p.plano = val;
             if(h.includes('obs')) p.obs = val;
           });
           if(p.nome) newPatients.push(p);
@@ -417,6 +428,29 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
           </div>
           <button onClick={() => setShowAdvanced(!showAdvanced)} className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"><Filter size={20} /> Filtros</button>
         </div>
+
+        {/* Painel de Filtros Avançados */}
+        {showAdvanced && (
+          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-end">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Status do Paciente</label>
+                <select className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                  <option value="">Todos</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Inativo">Inativo</option>
+                  <option value="Em Tratamento">Em Tratamento</option>
+                  <option value="Em aberto">Em aberto</option>
+                  <option value="Em Pendências">Em Pendências</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Plano / Convênio</label>
+                <input type="text" placeholder="Ex: Unimed, Particular..." className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={filterPlano} onChange={(e) => setFilterPlano(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -432,23 +466,33 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredPatients.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 font-medium text-teal-800">{p.pasta || '-'}</td>
-                  <td className="p-4 text-slate-800 font-medium">{p.nome}</td>
-                  <td className="p-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                      ${p.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="p-4 text-slate-600">{p.plano}</td>
-                  <td className="p-4 flex items-center justify-end gap-2 print:hidden">
-                    <button onClick={() => onEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={18} /></button>
-                    <button onClick={() => onDelete(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
-                  </td>
+              {filteredPatients.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-slate-500">Nenhum paciente encontrado.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredPatients.map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-medium text-teal-800">{p.pasta || '-'}</td>
+                    <td className="p-4 text-slate-800 font-medium">{p.nome}</td>
+                    <td className="p-4">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full 
+                        ${p.status === 'Ativo' ? 'bg-green-100 text-green-700' : 
+                          p.status === 'Em Tratamento' ? 'bg-blue-100 text-blue-700' : 
+                          p.status === 'Inativo' ? 'bg-slate-100 text-slate-700' : 
+                          p.status === 'Em aberto' ? 'bg-orange-100 text-orange-700' : 
+                          p.status === 'Em Pendências' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {p.status || 'Sem status'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-600">{p.plano}</td>
+                    <td className="p-4 flex items-center justify-end gap-2 print:hidden">
+                      <button onClick={() => onEdit(p)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={18} /></button>
+                      <button onClick={() => onDelete(p.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -458,22 +502,19 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
 }
 
 // ==========================================
-// DASHBOARD VIEW (COMPLETA)
+// DASHBOARD VIEW
 // ==========================================
 function DashboardView({ patients, clinicSettings }) {
-  const stats = useMemo(() => {
-    return {
-      total: patients.length,
-      tratamento: patients.filter(p => p.status === 'Em Tratamento').length,
-      aberto: patients.filter(p => p.status === 'Em aberto').length,
-      pendencias: patients.filter(p => p.status === 'Em Pendências').length,
-      ativos: patients.filter(p => p.status === 'Ativo').length,
-      inativos: patients.filter(p => p.status === 'Inativo').length
-    };
-  }, [patients]);
+  const stats = useMemo(() => ({
+    total: patients.length,
+    tratamento: patients.filter(p => String(p.status).trim() === 'Em Tratamento').length,
+    aberto: patients.filter(p => String(p.status).trim() === 'Em aberto').length,
+    pendencias: patients.filter(p => String(p.status).trim() === 'Em Pendências').length,
+    ativos: patients.filter(p => String(p.status).trim() === 'Ativo').length,
+    inativos: patients.filter(p => String(p.status).trim() === 'Inativo').length
+  }), [patients]);
 
   const recentes = useMemo(() => {
-    // Ordena os pacientes por ID decrescente para pegar os cadastros mais novos
     return [...patients].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
   }, [patients]);
 
@@ -487,48 +528,30 @@ function DashboardView({ patients, clinicSettings }) {
         </div>
       </div>
 
-      {/* Cartões de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0"><Users size={20} /></div>
-            <p className="text-sm font-medium text-slate-500 leading-tight">Total de<br/>Pacientes</p>
-          </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-blue-600"><Users size={20} /><p className="text-sm font-medium text-slate-500">Total Pacientes</p></div>
           <p className="text-3xl font-bold text-slate-800">{stats.total}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 shrink-0"><Activity size={20} /></div>
-            <p className="text-sm font-medium text-slate-500 leading-tight">Em<br/>Tratamento</p>
-          </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-teal-600"><Activity size={20} /><p className="text-sm font-medium text-slate-500">Tratamentos</p></div>
           <p className="text-3xl font-bold text-slate-800">{stats.tratamento}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shrink-0"><ClipboardList size={20} /></div>
-            <p className="text-sm font-medium text-slate-500 leading-tight">Orçamentos<br/>Abertos</p>
-          </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-orange-600"><ClipboardList size={20} /><p className="text-sm font-medium text-slate-500">Orçamentos</p></div>
           <p className="text-3xl font-bold text-slate-800">{stats.aberto}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0"><AlertCircle size={20} /></div>
-            <p className="text-sm font-medium text-slate-500 leading-tight">Com<br/>Pendências</p>
-          </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-red-600"><AlertCircle size={20} /><p className="text-sm font-medium text-slate-500">Pendências</p></div>
           <p className="text-3xl font-bold text-slate-800">{stats.pendencias}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0"><UserCheck size={20} /></div>
-            <p className="text-sm font-medium text-slate-500 leading-tight">Pacientes<br/>Ativos</p>
-          </div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
+          <div className="flex items-center gap-3 text-green-600"><UserCheck size={20} /><p className="text-sm font-medium text-slate-500">Ativos</p></div>
           <p className="text-3xl font-bold text-slate-800">{stats.ativos}</p>
         </div>
       </div>
 
-      {/* Seção Inferior: Recentes e Distribuição */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Últimos Cadastrados */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
             <UserCheck size={20} className="text-teal-600" /> Últimos Pacientes Cadastrados
@@ -556,7 +579,6 @@ function DashboardView({ patients, clinicSettings }) {
           </div>
         </div>
 
-        {/* Distribuição Gráfica */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
             <TrendingUp size={20} className="text-teal-600" /> Distribuição de Status (Base Completa)
@@ -574,7 +596,6 @@ function DashboardView({ patients, clinicSettings }) {
   );
 }
 
-// Subcomponente gráfico para o painel
 function StatusProgressBar({ label, count, total, color }) {
   const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
@@ -591,7 +612,7 @@ function StatusProgressBar({ label, count, total, color }) {
 }
 
 // ==========================================
-// WHATSAPP VIEW (COMPLETA)
+// WHATSAPP VIEW - FILTROS CORRIGIDOS E À PROVA DE BALAS
 // ==========================================
 function WhatsAppView({ patients }) {
   const [targetStatus, setTargetStatus] = useState('');
@@ -607,12 +628,18 @@ function WhatsAppView({ patients }) {
 
   const targetedPatients = useMemo(() => {
     let result = patients;
-    if (targetStatus) result = result.filter(p => p.status === targetStatus);
+    
+    if (targetStatus) {
+      const fStatus = targetStatus.toLowerCase().trim();
+      result = result.filter(p => String(p.status || '').toLowerCase().trim() === fStatus);
+    }
+    
     if (searchTerm) {
+      const term = searchTerm.toLowerCase().trim();
       result = result.filter(p => {
-        const nome = p.nome || '';
-        const pasta = p.pasta || '';
-        return nome.toLowerCase().includes(searchTerm.toLowerCase()) || pasta.includes(searchTerm);
+        const nome = String(p.nome || '').toLowerCase();
+        const pasta = String(p.pasta || '').toLowerCase();
+        return nome.includes(term) || pasta.includes(term);
       });
     }
     return result;
@@ -758,7 +785,7 @@ function PatientModal({ patient, onClose, onSave }) {
 }
 
 // ==========================================
-// DOCUMENTS VIEW - COMPLETA COM PESQUISA
+// DOCUMENTS VIEW
 // ==========================================
 function DocumentsView({ patients, clinicSettings }) {
   const [selectedId, setSelectedId] = useState('');
@@ -789,7 +816,6 @@ function DocumentsView({ patients, clinicSettings }) {
     setDocData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Sincroniza a caixa de texto quando um paciente é selecionado
   useEffect(() => {
     if (selectedId && selectedPatient) {
       setPatientSearch(selectedPatient.nome);
@@ -798,7 +824,6 @@ function DocumentsView({ patients, clinicSettings }) {
     }
   }, [selectedId, selectedPatient]);
 
-  // Fecha o menu de pesquisa se clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -809,9 +834,8 @@ function DocumentsView({ patients, clinicSettings }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filtra os pacientes na barra de pesquisa
   const filteredPatients = useMemo(() => {
-    if (!patientSearch) return patients.slice(0, 50); // Mostra 50 para não pesar
+    if (!patientSearch) return patients.slice(0, 50);
     const term = patientSearch.toLowerCase();
     return patients.filter(p => 
       (p.nome && p.nome.toLowerCase().includes(term)) || 
