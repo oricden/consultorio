@@ -253,7 +253,7 @@ function App() {
   return (
     <div className="h-screen w-full bg-slate-50 flex flex-col md:flex-row font-sans print:bg-white print:h-auto print:block overflow-hidden">
       
-      {/* Sidebar - Atualizada com Logótipo */}
+      {/* Sidebar */}
       <div className="w-full md:w-64 h-auto md:h-full shrink-0 bg-gradient-to-b from-teal-900 to-teal-800 text-white flex flex-col shadow-2xl print:hidden z-10 overflow-y-auto">
         <div className="p-6 flex items-center gap-3 shrink-0">
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 text-white p-2 rounded-xl shadow-inner">
@@ -458,16 +458,24 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
 }
 
 // ==========================================
-// DASHBOARD VIEW
+// DASHBOARD VIEW (COMPLETA)
 // ==========================================
 function DashboardView({ patients, clinicSettings }) {
-  const stats = useMemo(() => ({
-    total: patients.length,
-    tratamento: patients.filter(p => p.status === 'Em Tratamento').length,
-    aberto: patients.filter(p => p.status === 'Em aberto').length,
-    pendencias: patients.filter(p => p.status === 'Em Pendências').length,
-    ativos: patients.filter(p => p.status === 'Ativo').length
-  }), [patients]);
+  const stats = useMemo(() => {
+    return {
+      total: patients.length,
+      tratamento: patients.filter(p => p.status === 'Em Tratamento').length,
+      aberto: patients.filter(p => p.status === 'Em aberto').length,
+      pendencias: patients.filter(p => p.status === 'Em Pendências').length,
+      ativos: patients.filter(p => p.status === 'Ativo').length,
+      inativos: patients.filter(p => p.status === 'Inativo').length
+    };
+  }, [patients]);
+
+  const recentes = useMemo(() => {
+    // Ordena os pacientes por ID decrescente para pegar os cadastros mais novos
+    return [...patients].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
+  }, [patients]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -475,81 +483,250 @@ function DashboardView({ patients, clinicSettings }) {
         <ClinicLogo size={48} className="text-teal-700 hidden md:block" />
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Painel Geral</h2>
-          <p className="text-slate-500">{clinicSettings.doctorName}</p>
+          <p className="text-slate-500">Visão analítica da sua clínica: {clinicSettings.doctorName}</p>
         </div>
       </div>
 
+      {/* Cartões de Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-blue-600"><Users size={20} /><p className="text-sm font-medium text-slate-500">Total Pacientes</p></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0"><Users size={20} /></div>
+            <p className="text-sm font-medium text-slate-500 leading-tight">Total de<br/>Pacientes</p>
+          </div>
           <p className="text-3xl font-bold text-slate-800">{stats.total}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-teal-600"><Activity size={20} /><p className="text-sm font-medium text-slate-500">Tratamentos</p></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 shrink-0"><Activity size={20} /></div>
+            <p className="text-sm font-medium text-slate-500 leading-tight">Em<br/>Tratamento</p>
+          </div>
           <p className="text-3xl font-bold text-slate-800">{stats.tratamento}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-orange-600"><ClipboardList size={20} /><p className="text-sm font-medium text-slate-500">Orçamentos</p></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 shrink-0"><ClipboardList size={20} /></div>
+            <p className="text-sm font-medium text-slate-500 leading-tight">Orçamentos<br/>Abertos</p>
+          </div>
           <p className="text-3xl font-bold text-slate-800">{stats.aberto}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-red-600"><AlertCircle size={20} /><p className="text-sm font-medium text-slate-500">Pendências</p></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0"><AlertCircle size={20} /></div>
+            <p className="text-sm font-medium text-slate-500 leading-tight">Com<br/>Pendências</p>
+          </div>
           <p className="text-3xl font-bold text-slate-800">{stats.pendencias}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-green-600"><UserCheck size={20} /><p className="text-sm font-medium text-slate-500">Ativos</p></div>
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center gap-3 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 shrink-0"><UserCheck size={20} /></div>
+            <p className="text-sm font-medium text-slate-500 leading-tight">Pacientes<br/>Ativos</p>
+          </div>
           <p className="text-3xl font-bold text-slate-800">{stats.ativos}</p>
+        </div>
+      </div>
+
+      {/* Seção Inferior: Recentes e Distribuição */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Últimos Cadastrados */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+            <UserCheck size={20} className="text-teal-600" /> Últimos Pacientes Cadastrados
+          </h3>
+          <div className="space-y-3 flex-1">
+            {recentes.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-slate-400">Nenhum paciente cadastrado ainda.</div>
+            ) : (
+              recentes.map(p => (
+                <div key={p.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 hover:border-teal-200 transition-colors">
+                  <div>
+                    <p className="font-medium text-slate-800">{p.nome}</p>
+                    <p className="text-xs text-slate-500">Pasta: {p.pasta || '-'}</p>
+                  </div>
+                  <span className={`px-3 py-1 bg-white text-xs font-semibold rounded-full border shadow-sm
+                    ${p.status === 'Em aberto' ? 'text-orange-600 border-orange-200' : 
+                      p.status === 'Em Pendências' ? 'text-red-600 border-red-200' : 
+                      p.status === 'Em Tratamento' ? 'text-blue-600 border-blue-200' : 
+                      p.status === 'Inativo' ? 'text-slate-600 border-slate-200 bg-slate-100' : 'text-green-600 border-green-200'}`}>
+                    {p.status}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Distribuição Gráfica */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-full">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+            <TrendingUp size={20} className="text-teal-600" /> Distribuição de Status (Base Completa)
+          </h3>
+          <div className="space-y-6 mt-6">
+            <StatusProgressBar label="Pacientes Ativos" count={stats.ativos} total={stats.total} color="bg-green-500" />
+            <StatusProgressBar label="Em Tratamento Atual" count={stats.tratamento} total={stats.total} color="bg-teal-500" />
+            <StatusProgressBar label="Orçamentos Aguardando Fechamento" count={stats.aberto} total={stats.total} color="bg-orange-500" />
+            <StatusProgressBar label="Inadimplência / Pendências" count={stats.pendencias} total={stats.total} color="bg-red-500" />
+            <StatusProgressBar label="Pacientes Inativos" count={stats.inativos} total={stats.total} color="bg-slate-400" />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
+// Subcomponente gráfico para o painel
+function StatusProgressBar({ label, count, total, color }) {
+  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm font-semibold text-slate-700">{label}</span>
+        <span className="text-sm font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">{count} <span className="text-slate-400 font-normal ml-1">({percentage}%)</span></span>
+      </div>
+      <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden shadow-inner">
+        <div className={`${color} h-full rounded-full transition-all duration-1000 ease-out relative`} style={{ width: `${percentage}%` }}></div>
+      </div>
+    </div>
+  );
+}
+
 // ==========================================
-// WHATSAPP VIEW
+// WHATSAPP VIEW (COMPLETA)
 // ==========================================
 function WhatsAppView({ patients }) {
   const [targetStatus, setTargetStatus] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [templateType, setTemplateType] = useState('pendencia');
   const [customMessage, setCustomMessage] = useState(TEMPLATES.pendencia);
   const [sentLog, setSentLog] = useState({});
 
-  const targetedPatients = useMemo(() => targetStatus ? patients.filter(p => p.status === targetStatus) : patients, [patients, targetStatus]);
+  const handleTemplateChange = (type) => {
+    setTemplateType(type);
+    setCustomMessage(TEMPLATES[type]);
+  };
 
-  const generateWhatsAppLink = (p) => {
-    const msg = customMessage.replace(/{nome}/g, (p.nome || '').split(' ')[0]);
-    const phone = (p.whatsapp || p.celular || '').replace(/\D/g, '');
+  const targetedPatients = useMemo(() => {
+    let result = patients;
+    if (targetStatus) result = result.filter(p => p.status === targetStatus);
+    if (searchTerm) {
+      result = result.filter(p => {
+        const nome = p.nome || '';
+        const pasta = p.pasta || '';
+        return nome.toLowerCase().includes(searchTerm.toLowerCase()) || pasta.includes(searchTerm);
+      });
+    }
+    return result;
+  }, [patients, targetStatus, searchTerm]);
+
+  const generateWhatsAppLink = (patient) => {
+    const nome = patient.nome || '';
+    let msg = customMessage.replace(/{nome}/g, nome.split(' ')[0]);
+    const phone = (patient.whatsapp || patient.celular || '').replace(/\D/g, '');
     if(!phone) return null;
-    return `https://wa.me/${phone.startsWith('55') ? phone : `55${phone}`}?text=${encodeURIComponent(msg)}`;
+    const formattedPhone = phone.startsWith('55') ? phone : `55${phone}`;
+    return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const markAsSent = (id) => {
+    setSentLog(prev => ({ ...prev, [id]: true }));
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold text-slate-800">Campanhas WhatsApp</h2>
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">Campanhas e Contatos (WhatsApp)</h2>
+        <p className="text-slate-500">Filtre pacientes e dispare mensagens pré-programadas.</p>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 h-fit space-y-4">
-          <label className="block text-sm font-medium text-slate-700">Público-Alvo (Status)</label>
-          <select className="w-full p-2 border border-slate-300 rounded-lg outline-none" value={targetStatus} onChange={(e) => setTargetStatus(e.target.value)}>
-            <option value="">Todos</option>
-            <option value="Ativo">Ativo</option>
-            <option value="Em Tratamento">Em Tratamento</option>
-            <option value="Em aberto">Em aberto</option>
-            <option value="Em Pendências">Em Pendências</option>
-          </select>
-          <label className="block text-sm font-medium text-slate-700">Mensagem</label>
-          <textarea rows="5" className="w-full p-3 border border-slate-300 rounded-lg outline-none text-sm resize-none" value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} />
-          <p className="text-xs text-slate-400">Dica: Use {'{nome}'} para o primeiro nome do paciente.</p>
-        </div>
-        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 h-fit space-y-3">
-          {targetedPatients.map(p => {
-            const link = generateWhatsAppLink(p);
-            return (
-              <div key={p.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl hover:bg-slate-50">
-                <div><p className="font-medium text-slate-800">{p.nome}</p><p className="text-sm text-slate-500">{p.whatsapp || p.celular}</p></div>
-                {link && <a href={link} target="_blank" rel="noopener" onClick={() => setSentLog(prev => ({...prev, [p.id]: true}))} className={`px-4 py-2 rounded-lg text-sm font-medium ${sentLog[p.id] ? 'bg-slate-100 text-slate-500' : 'bg-[#25D366] text-white hover:bg-[#20bd5a]'}`}>{sentLog[p.id] ? 'Enviado' : 'Enviar WhatsApp'}</a>}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+              <Filter size={18} /> 1. Público-Alvo
+            </h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Buscar Paciente Específico</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input type="text" placeholder="Nome ou Pasta..." className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
-            );
-          })}
+            </div>
+
+            <label className="block text-sm font-medium text-slate-700 mb-1">Ou Filtrar por Status</label>
+            <select className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={targetStatus} onChange={(e) => setTargetStatus(e.target.value)}>
+              <option value="">Todos os Pacientes</option>
+              <option value="Ativo">Ativo</option>
+              <option value="Em Tratamento">Em Tratamento</option>
+              <option value="Inativo">Inativo</option>
+              <option value="Em aberto">Em aberto</option>
+              <option value="Em Pendências">Em Pendências</option>
+            </select>
+            <p className="text-sm text-slate-500 mt-3">{targetedPatients.length} paciente(s) selecionado(s).</p>
+          </div>
+
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+              <MessageCircle size={18} /> 2. Tipo de Mensagem
+            </h3>
+            <div className="space-y-2 mb-4">
+              <button onClick={() => handleTemplateChange('pendencia')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'pendencia' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <AlertCircle size={16} className="inline mr-2" /> Pendência Financeira
+              </button>
+              <button onClick={() => handleTemplateChange('agendamento')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'agendamento' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <Calendar size={16} className="inline mr-2" /> Novo Agendamento
+              </button>
+              <button onClick={() => handleTemplateChange('campanha')} className={`w-full text-left px-3 py-2 rounded-lg border ${templateType === 'campanha' ? 'border-teal-500 bg-teal-50 text-teal-800 font-medium' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <MessageCircle size={16} className="inline mr-2" /> Campanha Customizada
+              </button>
+            </div>
+            
+            <label className="block text-sm font-medium text-slate-700 mb-1">Editor de Mensagem</label>
+            <textarea rows="5" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-sm resize-none" value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} />
+            <p className="text-xs text-slate-400 mt-1">Use {'{nome}'} para injetar o nome do paciente.</p>
+          </div>
         </div>
+
+        <div className="lg:col-span-2">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-full">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2 mb-4">
+              <Send size={18} /> 3. Lista de Disparo
+            </h3>
+            
+            <div className="bg-blue-50 border border-blue-100 text-blue-800 p-3 rounded-lg text-sm mb-4">
+              <strong>Como funciona:</strong> Clique no botão "Enviar WhatsApp" para abrir a conversa com a mensagem pronta. O sistema marcará quem já foi contatado na sessão atual.
+            </div>
+
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+              {targetedPatients.length === 0 ? (
+                <p className="text-slate-500 text-center py-8">Nenhum paciente encontrado para este filtro.</p>
+              ) : (
+                targetedPatients.map(p => {
+                  const link = generateWhatsAppLink(p);
+                  const isSent = sentLog[p.id];
+                  return (
+                    <div key={p.id} className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${isSent ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200 hover:border-teal-300'}`}>
+                      <div>
+                        <p className="font-medium text-slate-800">{p.nome}</p>
+                        <p className="text-sm text-slate-500">{p.whatsapp || p.celular || 'Sem número cadastrado'}</p>
+                      </div>
+                      
+                      {link ? (
+                        <a href={link} target="_blank" rel="noopener noreferrer" onClick={() => markAsSent(p.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm ${isSent ? 'bg-white text-green-700 border border-green-300 hover:bg-green-100' : 'bg-[#25D366] text-white hover:bg-[#20bd5a]'}`}>
+                          {isSent ? <Check size={16} /> : <MessageCircle size={16} />}
+                          {isSent ? 'Reenviar' : 'Enviar WhatsApp'}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">Sem contato válido</span>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
