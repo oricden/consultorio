@@ -581,7 +581,7 @@ function PatientModal({ patient, onClose, onSave }) {
 }
 
 // ==========================================
-// DOCUMENTS VIEW - ATUALIZADA COM BARRA DE PESQUISA
+// DOCUMENTS VIEW - COMPLETA COM PESQUISA
 // ==========================================
 function DocumentsView({ patients, clinicSettings }) {
   const [selectedId, setSelectedId] = useState('');
@@ -590,18 +590,36 @@ function DocumentsView({ patients, clinicSettings }) {
   const dropdownRef = useRef(null);
 
   const [docType, setDocType] = useState('receita_simples');
-  const [docData, setDocData] = useState({ dias: '1', dataConsulta: new Date().toISOString().split('T')[0], horaInicio: '08:00', horaFim: '09:00', prescricao: 'Uso Interno:\n\n1. Amoxicilina 500mg ------ 1 caixa\nTomar 1 cápsula de 8 em 8 horas por 7 dias.', solicitacaoText: '', avaliacaoText: '', contratoText: '', orcamentoServicos: '', orcamentoPagamento: '' });
+  const [docData, setDocData] = useState({
+    dias: '1',
+    dataConsulta: new Date().toISOString().split('T')[0],
+    horaInicio: '08:00',
+    horaFim: '09:00',
+    prescricao: 'Uso Interno:\n\n1. Amoxicilina 500mg ------ 1 caixa\nTomar 1 cápsula de 8 em 8 horas por 7 dias.\n\n2. Ibuprofeno 400mg ------ 1 caixa\nTomar 1 comprimido de 8 em 8 horas em caso de dor.',
+    observacao: '',
+    solicitacaoText: 'Solicito a avaliação e conduta clínica para o(a) paciente supracitado(a).\n\nMotivo do Encaminhamento:\n- \n\nExames Solicitados:\n1. Radiografia Panorâmica\n2. ',
+    orientacaoText: 'ORIENTAÇÕES IMPORTANTES PARA UMA BOA RECUPERAÇÃO:\n\n1. Repouso nas primeiras 24 horas;\n2. Alimentação líquida ou pastosa e fria nas primeiras 24h;\n3. Não fazer bochechos intensos ou cuspir nos primeiros 2 dias;\n4. Aplicar compressa de gelo na face (15 min) nas primeiras 24h para evitar inchaço;\n5. Escovar os dentes normalmente, com cuidado na área operada;\n6. Tomar a medicação prescrita rigorosamente no horário;\n7. Evitar exposição ao sol e esforços físicos na primeira semana;\n\nEm caso de dor intensa, inchaço excessivo ou sangramento anormal, entre em contato imediatamente.',
+    avaliacaoText: 'Avaliação clínica realizada na presente data.\n\nAchados clínicos:\n- \n\nPlano de Tratamento Proposto:\n- ',
+    contratoText: 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS ODONTOLÓGICOS\n\n1. OBJETO DO CONTRATO\nO presente contrato tem como objeto a prestação de serviços odontológicos constantes no plano de tratamento aprovado pelo CONTRATANTE.\n\n2. OBRIGAÇÕES DO PROFISSIONAL\nO CONTRATADO compromete-se a executar os serviços odontológicos com zelo, utilizando técnicas e materiais adequados, garantindo a qualidade do tratamento dentro dos limites da ciência odontológica.\n\n3. OBRIGAÇÕES DO PACIENTE (CONTRATANTE)\nO CONTRATANTE compromete-se a comparecer pontualmente às consultas, seguir rigorosamente as prescrições e orientações pós-operatórias, e efetuar o pagamento dos honorários ajustados.\n\n4. HONORÁRIOS E FORMA DE PAGAMENTO\nO total do tratamento, bem como a forma de pagamento, encontram-se descritos no orçamento previamente aprovado e assinado pelas partes, que passa a fazer parte integrante deste contrato.',
+    orcamentoServicos: '1. Profilaxia e Raspagem ................. R$ 200,00\n2. Restauração Resina Dente 36 ........... R$ 250,00\n\nValor Total do Tratamento: R$ 450,00',
+    orcamentoPagamento: 'Opção 1: À vista com 5% de desconto (R$ 427,50).\nOpção 2: Entrada de R$ 150,00 + 2 parcelas de R$ 150,00 no cartão de crédito.'
+  });
 
-  const patient = patients.find(p => p.id === selectedId);
+  const selectedPatient = patients.find(p => p.id === selectedId);
+
+  const handleDataChange = (e) => {
+    const { name, value } = e.target;
+    setDocData(prev => ({ ...prev, [name]: value }));
+  };
 
   // Sincroniza a caixa de texto quando um paciente é selecionado
   useEffect(() => {
-    if (selectedId && patient) {
-      setPatientSearch(patient.nome);
+    if (selectedId && selectedPatient) {
+      setPatientSearch(selectedPatient.nome);
     } else {
       setPatientSearch('');
     }
-  }, [selectedId, patient]);
+  }, [selectedId, selectedPatient]);
 
   // Fecha o menu de pesquisa se clicar fora dele
   useEffect(() => {
@@ -616,54 +634,341 @@ function DocumentsView({ patients, clinicSettings }) {
 
   // Filtra os pacientes na barra de pesquisa
   const filteredPatients = useMemo(() => {
-    if (!patientSearch) return patients.slice(0, 50); // Mostra os primeiros 50 por defeito para não pesar
+    if (!patientSearch) return patients.slice(0, 50); // Mostra 50 para não pesar
     const term = patientSearch.toLowerCase();
     return patients.filter(p => 
       (p.nome && p.nome.toLowerCase().includes(term)) || 
       (p.cpf && p.cpf.includes(term)) ||
       (p.pasta && p.pasta.includes(term))
-    ).slice(0, 50); // Limita os resultados a 50
+    ).slice(0, 50);
   }, [patients, patientSearch]);
 
-  const handlePrintDoc = () => {
-    if (!patient) return alert("Selecione um paciente primeiro.");
+  const getOdontogramaHTML = () => {
+    const createTooth = (num) => `
+      <div style="display: flex; flex-direction: column; align-items: center; margin: 2px;">
+        <span style="font-size: 11px; font-weight: bold; font-family: Arial, sans-serif; color: #475569; margin-bottom: 2px;">${num}</span>
+        <svg width="28" height="28" viewBox="0 0 40 40" style="display: block;">
+          <polygon points="0,0 40,0 30,10 10,10" fill="white" stroke="#64748b" stroke-width="1.2"/>
+          <polygon points="0,40 40,40 30,30 10,30" fill="white" stroke="#64748b" stroke-width="1.2"/>
+          <polygon points="0,0 10,10 10,30 0,40" fill="white" stroke="#64748b" stroke-width="1.2"/>
+          <polygon points="40,0 30,10 30,30 40,40" fill="white" stroke="#64748b" stroke-width="1.2"/>
+          <rect x="10" y="10" width="20" height="20" fill="white" stroke="#64748b" stroke-width="1.2"/>
+        </svg>
+      </div>
+    `;
+    const upperRight = [18,17,16,15,14,13,12,11];
+    const upperLeft = [21,22,23,24,25,26,27,28];
+    const lowerRight = [48,47,46,45,44,43,42,41];
+    const lowerLeft = [31,32,33,34,35,36,37,38];
+
+    return `
+      <div style="margin-top: 25px; margin-bottom: 30px; width: 100%; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; background: #f8fafc; box-sizing: border-box;">
+        <div style="text-align: center; font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 12px; font-family: Arial, sans-serif; letter-spacing: 1px;">ODONTOGRAMA</div>
+        <div style="display: flex; justify-content: center; gap: 4px; margin-bottom: 15px;">
+          <div style="display: flex; gap: 2px; border-right: 2px solid #cbd5e1; padding-right: 8px;">${upperRight.map(createTooth).join('')}</div>
+          <div style="display: flex; gap: 2px; padding-left: 8px;">${upperLeft.map(createTooth).join('')}</div>
+        </div>
+        <div style="display: flex; justify-content: center; gap: 4px;">
+          <div style="display: flex; gap: 2px; border-right: 2px solid #cbd5e1; padding-right: 8px;">${lowerRight.map(createTooth).join('')}</div>
+          <div style="display: flex; gap: 2px; padding-left: 8px;">${lowerLeft.map(createTooth).join('')}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  const buildDocAssets = () => {
     const dateObj = new Date();
     const meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
-    const cidade = clinicSettings.address.split(',').pop().trim() || 'Votorantim';
-    const dataExtenso = `${cidade}, ${dateObj.getDate()} de ${meses[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
+    const cidadeBase = clinicSettings.address.split('-')[0].split(',').pop().trim() || 'Votorantim';
+    const dataExtenso = `${cidadeBase}, ${dateObj.getDate()} de ${meses[dateObj.getMonth()]} de ${dateObj.getFullYear()}`;
 
-    const printIframe = document.createElement('iframe');
-    printIframe.style.display = 'none';
-    document.body.appendChild(printIframe);
+    const patientInfoBlock = selectedPatient ? `
+      <div style="margin-bottom: 10px; font-size: 11px; line-height: 1.3; border: 1px solid #e2e8f0; padding: 8px; border-radius: 6px; background: #fcfcfc;">
+        <div style="margin-bottom: 4px; font-size: 12px; font-weight: bold; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px;">DADOS DO PACIENTE</div>
+        <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+          <tr>
+            <td style="padding: 1px 0; width: 60%;"><strong>Nome:</strong> ${selectedPatient.nome || ''}</td>
+            <td style="padding: 1px 0; width: 40%;"><strong>Nascimento:</strong> ${selectedPatient.nascimento ? selectedPatient.nascimento.split('-').reverse().join('/') : '-'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 1px 0;"><strong>CPF:</strong> ${selectedPatient.cpf || '-'}</td>
+            <td style="padding: 1px 0;"><strong>Profissão:</strong> ${selectedPatient.profissao || '-'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 1px 0;"><strong>Celular/WhatsApp:</strong> ${selectedPatient.celular || '-'} ${selectedPatient.whatsapp && selectedPatient.whatsapp !== selectedPatient.celular ? ` / ${selectedPatient.whatsapp}` : ''}</td>
+            <td style="padding: 1px 0;"><strong>E-mail:</strong> ${selectedPatient.email || '-'}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding: 1px 0;"><strong>Endereço:</strong> ${selectedPatient.endereco || '-'}, ${selectedPatient.bairro || '-'} - ${selectedPatient.cidade || '-'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 1px 0;"><strong>Plano/Convênio:</strong> ${selectedPatient.plano || '-'}</td>
+            <td style="padding: 1px 0;"><strong>Pasta:</strong> ${selectedPatient.pasta || '-'}</td>
+          </tr>
+        </table>
+      </div>
+    ` : '';
+
+    let contentHtml = '';
+    let docTitle = '';
+
+    if (docType === 'receita_simples' || docType === 'receita_controle') {
+      docTitle = 'RECEITUÁRIO';
+      contentHtml = `
+        <div style="margin-bottom: 20px;">
+          <p style="font-size: 15px;"><strong>Para:</strong> ${selectedPatient?.nome || ''}</p>
+          ${docType === 'receita_controle' ? `<p style="font-size: 13px; margin-top: -10px;"><strong>Endereço:</strong> ${selectedPatient?.endereco || ''}, ${selectedPatient?.cidade || ''}</p>` : ''}
+        </div>
+        <div style="font-size: 14px; line-height: 1.8; white-space: pre-wrap;">${docData.prescricao}</div>
+      `;
+    } 
+    else if (docType === 'atestado_dias') {
+      docTitle = 'ATESTADO ODONTOLÓGICO';
+      contentHtml = `
+        <p style="text-indent: 40px; font-size: 16px; line-height: 2;">
+          Atesto para os devidos fins que o(a) paciente <strong>${selectedPatient?.nome || ''}</strong>, 
+          inscrito(a) no CPF sob o nº ${selectedPatient?.cpf || '___________________'}, necessita de <strong>${docData.dias}</strong> 
+          dia(s) de repouso a partir desta data, por motivo de tratamento odontológico.
+        </p>
+        ${docData.observacao ? `<p style="font-size: 14px; margin-top: 20px;"><strong>Observação:</strong> ${docData.observacao}</p>` : ''}
+      `;
+    }
+    else if (docType === 'declaracao_comparecimento' || docType === 'atestado_comparecimento') {
+      docTitle = docType === 'declaracao_comparecimento' ? 'DECLARAÇÃO DE COMPARECIMENTO' : 'ATESTADO DE COMPARECIMENTO';
+      const dataConv = docData.dataConsulta.split('-').reverse().join('/');
+      contentHtml = `
+        <p style="text-indent: 40px; font-size: 16px; line-height: 2;">
+          ${docType === 'declaracao_comparecimento' ? 'Declaro' : 'Atesto'} para os devidos fins que o(a) paciente <strong>${selectedPatient?.nome || ''}</strong>, 
+          inscrito(a) no CPF sob o nº ${selectedPatient?.cpf || '___________________'}, esteve sob meus cuidados 
+          profissionais em consulta odontológica no dia <strong>${dataConv}</strong>, 
+          no período das <strong>${docData.horaInicio}</strong> às <strong>${docData.horaFim}</strong>.
+        </p>
+      `;
+    }
+    else if (docType === 'solicitacao') {
+      docTitle = 'SOLICITAÇÃO / ENCAMINHAMENTO';
+      contentHtml = `
+        <div style="margin-bottom: 20px;">
+          <p style="font-size: 15px;"><strong>Paciente:</strong> ${selectedPatient?.nome || ''}</p>
+        </div>
+        <div style="font-size: 14px; line-height: 1.8; white-space: pre-wrap;">${docData.solicitacaoText}</div>
+      `;
+    }
+    else if (docType === 'orientacao_pos_op') {
+      docTitle = 'ORIENTAÇÕES PÓS-OPERATÓRIAS';
+      contentHtml = `
+        <div style="margin-bottom: 20px;">
+          <p style="font-size: 15px;"><strong>Paciente:</strong> ${selectedPatient?.nome || ''}</p>
+        </div>
+        <div style="font-size: 14px; line-height: 1.8; white-space: pre-wrap;">${docData.orientacaoText}</div>
+      `;
+    }
+    else if (docType === 'avaliacao') {
+      docTitle = 'AVALIAÇÃO ODONTOLÓGICA';
+      contentHtml = `
+        ${patientInfoBlock}
+        ${getOdontogramaHTML()}
+        <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${docData.avaliacaoText}</div>
+      `;
+    }
+    else if (docType === 'contrato') {
+      docTitle = 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS';
+      contentHtml = `
+        <div style="font-size: 12px; margin-bottom: 8px;">
+          <strong>CONTRATADO:</strong> ${clinicSettings.doctorName}, inscrito(a) no ${clinicSettings.cro}, com consultório na ${clinicSettings.address}.
+        </div>
+        <div style="font-size: 12px; margin-bottom: 4px;">
+          <strong>CONTRATANTE:</strong>
+        </div>
+        ${patientInfoBlock}
+        <div style="font-size: 12px; line-height: 1.4; white-space: pre-wrap; text-align: justify;">${docData.contratoText}</div>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
+          <div style="width: 45%;">
+            <div style="border-top: 1px solid #1e293b; margin: 0 auto 5px;"></div>
+            <p style="margin: 0; font-weight: bold; font-size: 12px; color: #0f172a;">${clinicSettings.doctorName}</p>
+            <p style="margin: 2px 0 0; font-size: 10px; color: #475569;">CONTRATADO</p>
+          </div>
+          <div style="width: 45%;">
+            <div style="border-top: 1px solid #1e293b; margin: 0 auto 5px;"></div>
+            <p style="margin: 0; font-weight: bold; font-size: 12px; color: #0f172a;">${selectedPatient ? selectedPatient.nome : 'CONTRATANTE'}</p>
+            <p style="margin: 2px 0 0; font-size: 10px; color: #475569;">CONTRATANTE</p>
+          </div>
+        </div>
+      `;
+    }
+    else if (docType === 'orcamento') {
+      docTitle = 'ORÇAMENTO DE TRATAMENTO';
+      contentHtml = `
+        ${patientInfoBlock}
+        <div style="margin-top: 10px;">
+            <h3 style="font-size: 13px; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; margin-bottom: 6px;">SERVIÇOS ORÇADOS</h3>
+            <div style="font-size: 12px; line-height: 1.5; white-space: pre-wrap; background: #f8fafc; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px;">${docData.orcamentoServicos}</div>
+        </div>
+        <div style="margin-top: 10px;">
+            <h3 style="font-size: 13px; color: #115e59; border-bottom: 1px solid #e2e8f0; padding-bottom: 2px; margin-bottom: 6px;">CONDIÇÕES DE PAGAMENTO</h3>
+            <div style="font-size: 12px; line-height: 1.5; white-space: pre-wrap; background: #f0fdf4; padding: 8px; border: 1px solid #bbf7d0; border-radius: 6px; color: #166534;">${docData.orcamentoPagamento}</div>
+        </div>
+        <div style="font-size: 10px; color: #64748b; margin-top: 10px; text-align: justify; font-style: italic;">
+           * Este orçamento tem validade de 15 dias a partir da data de emissão. Os valores e condições estão sujeitos a alterações após este prazo ou caso haja mudança justificada no plano de tratamento clínico durante a execução.
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
+          <div style="width: 45%;">
+            <div style="border-top: 1px solid #1e293b; margin: 0 auto 5px;"></div>
+            <p style="margin: 0; font-weight: bold; font-size: 12px; color: #0f172a;">${clinicSettings.doctorName}</p>
+            <p style="margin: 2px 0 0; font-size: 10px; color: #475569;">CIRURGIÃO DENTISTA</p>
+          </div>
+          <div style="width: 45%;">
+            <div style="border-top: 1px solid #1e293b; margin: 0 auto 5px;"></div>
+            <p style="margin: 0; font-weight: bold; font-size: 12px; color: #0f172a;">${selectedPatient ? selectedPatient.nome : 'PACIENTE / RESPONSÁVEL'}</p>
+            <p style="margin: 2px 0 0; font-size: 10px; color: #475569;">ACEITE DO ORÇAMENTO</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const logoSvg = `
+      <svg width="60" height="60" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path d="M25,20 C10,35 15,55 30,65 C40,70 35,85 25,95 C45,95 60,80 55,65 C50,50 65,40 75,30 C85,20 70,10 50,15 C40,17 35,10 25,20 Z" fill="#115e59"/>
+        <path d="M60,45 Q80,35 90,40" stroke="#115e59" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M65,55 Q85,45 95,50" stroke="#115e59" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M70,65 Q90,55 100,60" stroke="#115e59" stroke-width="4" fill="none" stroke-linecap="round"/>
+      </svg>
+    `;
+
+    const logoRender = clinicSettings.logo 
+      ? `<img src="${clinicSettings.logo}" style="max-height: 80px; max-width: 250px; object-fit: contain;" />` 
+      : logoSvg;
+
+    return { docTitle, contentHtml, dataExtenso, logoRender };
+  };
+
+  const handlePrintDoc = () => {
+    if (!selectedPatient) {
+      alert("Por favor, selecione um paciente primeiro.");
+      return;
+    }
+    const { docTitle, contentHtml, dataExtenso, logoRender } = buildDocAssets();
+    let printIframe = document.getElementById('print-doc-iframe');
+    if (!printIframe) {
+      printIframe = document.createElement('iframe');
+      printIframe.id = 'print-doc-iframe';
+      printIframe.style.position = 'absolute';
+      printIframe.style.width = '0px';
+      printIframe.style.height = '0px';
+      printIframe.style.border = 'none';
+      document.body.appendChild(printIframe);
+    }
     const doc = printIframe.contentWindow.document;
     doc.open();
     doc.write(`
-      <html><head><style>
-        @page { margin: 20mm; }
-        body { font-family: 'Georgia', serif; color: #1e293b; line-height: 1.6; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #115e59; padding-bottom: 15px; margin-bottom: 30px; }
-        .logo-svg { color: #115e59; }
-        .clinic-info { text-align: right; font-family: sans-serif; }
-        .clinic-info h1 { margin: 0; color: #115e59; font-size: 20px; text-transform: uppercase; }
-        .title { text-align: center; font-weight: bold; text-transform: uppercase; border: 1px solid #e2e8f0; background: #f8fafc; padding: 10px; margin-bottom: 30px; letter-spacing: 2px; }
-        .content { min-height: 400px; white-space: pre-wrap; }
-        .signature { margin-top: 50px; text-align: center; }
-        .signature-line { width: 300px; border-top: 1px solid #000; margin: 0 auto 10px; }
-        .footer { position: fixed; bottom: 0; width: 100%; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; font-size: 10px; font-family: sans-serif; }
-      </style></head><body>
-        <div class="header">
-          <svg width="60" height="60" viewBox="0 0 100 100" class="logo-svg"><path d="M25,20 C10,35 15,55 30,65 C40,70 35,85 25,95 C45,95 60,80 55,65 C50,50 65,40 75,30 C85,20 70,10 50,15 C40,17 35,10 25,20 Z" fill="currentColor"/><path d="M60,45 Q80,35 90,40" stroke="currentColor" stroke-width="4" fill="none"/><path d="M65,55 Q85,45 95,50" stroke="currentColor" stroke-width="4" fill="none"/><path d="M70,65 Q90,55 100,60" stroke="currentColor" stroke-width="4" fill="none"/></svg>
-          <div class="clinic-info"><h1>${clinicSettings.doctorName}</h1><p>Cirurgião Dentista - ${clinicSettings.cro}</p></div>
-        </div>
-        <div class="title">${docType.replace('_', ' ')}</div>
-        <div class="content"><strong>Paciente:</strong> ${patient.nome}\n\n${docType.includes('receita') ? docData.prescricao : 'Atesto para os devidos fins que o paciente supracitado esteve em consulta profissional nesta data.'}</div>
-        <div class="signature"><div class="signature-line"></div><strong>${clinicSettings.doctorName}</strong><br>${clinicSettings.cro}</div>
-        <div style="text-align: right; margin-top: 40px; font-style: italic;">${dataExtenso}</div>
-        <div class="footer">${clinicSettings.address} | ${clinicSettings.phone}</div>
-      </body></html>
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Impressão - ${docTitle}</title>
+          <style>
+            @page { margin: 0; }
+            body { font-family: 'Georgia', 'Times New Roman', serif; color: #1e293b; margin: 0; padding: 0; }
+            .papel-timbrado { width: 210mm; min-height: 297mm; padding: 20mm 20mm; box-sizing: border-box; position: relative; margin: 0 auto; background: #fff; }
+            .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #115e59; padding-bottom: 10px; margin-bottom: 15px; position: relative; }
+            .header::after { content: ''; position: absolute; bottom: -6px; left: 0; right: 0; border-bottom: 1px solid #115e59; opacity: 0.3; }
+            .logo { flex: 0 0 auto; }
+            .header-info { text-align: right; font-family: 'Arial', sans-serif; }
+            .header-info h1 { margin: 0; color: #115e59; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+            .header-info p { margin: 4px 0 0; color: #475569; font-size: 12px; font-weight: bold; letter-spacing: 0.5px; }
+            .doc-title { text-align: center; font-size: 14px; font-weight: bold; font-family: 'Arial', sans-serif; border: 1px solid #e2e8f0; padding: 4px 10px; margin: 0 auto 15px; width: fit-content; border-radius: 4px; background: #f8fafc; letter-spacing: 1.5px; }
+            .content { font-size: 13px; }
+            .signature { margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif; }
+            .signature-line { width: 250px; border-top: 1px solid #1e293b; margin: 0 auto 10px; }
+            .footer { position: absolute; bottom: 15mm; left: 20mm; right: 20mm; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; color: #64748b; font-size: 11px; font-family: 'Arial', sans-serif; }
+          </style>
+        </head>
+        <body>
+          <div class="papel-timbrado">
+            <div class="header">
+              <div class="logo">${logoRender}</div>
+              <div class="header-info">
+                <h1>${clinicSettings.doctorName}</h1>
+                <p>Cirurgião Dentista - ${clinicSettings.cro}</p>
+              </div>
+            </div>
+            <div class="doc-title">${docTitle}</div>
+            <div class="content">${contentHtml}</div>
+            ${docType !== 'contrato' && docType !== 'orcamento' ? `
+            <div class="signature">
+              <div class="signature-line"></div>
+              <p style="margin: 0; font-weight: bold; font-size: 14px; color: #0f172a;">${clinicSettings.doctorName}</p>
+              <p style="margin: 2px 0 0; font-size: 12px; color: #475569;">${clinicSettings.cro}</p>
+            </div>` : ''}
+            <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">${dataExtenso}</div>
+            <div class="footer">
+              <p style="margin: 0; font-weight: bold; color: #334155;">${clinicSettings.address}</p>
+              <p style="margin: 4px 0 0;">Telefone / WhatsApp: ${clinicSettings.phone}</p>
+            </div>
+          </div>
+        </body>
+      </html>
     `);
     doc.close();
-    setTimeout(() => { printIframe.contentWindow.print(); document.body.removeChild(printIframe); }, 500);
+    setTimeout(() => {
+      printIframe.contentWindow.focus();
+      printIframe.contentWindow.print();
+    }, 500);
+  };
+
+  const handleDownloadDocPDF = () => {
+    if (!selectedPatient) {
+      alert("Por favor, selecione um paciente primeiro.");
+      return;
+    }
+    const { docTitle, contentHtml, dataExtenso, logoRender } = buildDocAssets();
+    const element = document.createElement('div');
+    element.innerHTML = `
+      <div style="font-family: 'Georgia', 'Times New Roman', serif; color: #1e293b; padding: 20px; box-sizing: border-box; background: #fff;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #115e59; padding-bottom: 10px; margin-bottom: 15px;">
+          <div>${logoRender}</div>
+          <div style="text-align: right; font-family: 'Arial', sans-serif;">
+            <h1 style="margin: 0; color: #115e59; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">${clinicSettings.doctorName}</h1>
+            <p style="margin: 4px 0 0; color: #475569; font-size: 12px; font-weight: bold;">Cirurgião Dentista - ${clinicSettings.cro}</p>
+          </div>
+        </div>
+        <div style="text-align: center; font-size: 14px; font-weight: bold; font-family: 'Arial', sans-serif; border: 1px solid #e2e8f0; padding: 4px 10px; margin: 0 auto 15px; width: fit-content; border-radius: 4px; background: #f8fafc; letter-spacing: 1.5px;">
+          ${docTitle}
+        </div>
+        <div style="font-size: 13px;">${contentHtml}</div>
+        ${docType !== 'contrato' && docType !== 'orcamento' ? `
+        <div style="margin-top: 25px; text-align: center; font-family: 'Arial', sans-serif;">
+          <div style="width: 250px; border-top: 1px solid #1e293b; margin: 0 auto 10px;"></div>
+          <p style="margin: 0; font-weight: bold; font-size: 13px; color: #0f172a;">${clinicSettings.doctorName}</p>
+          <p style="margin: 2px 0 0; font-size: 11px; color: #475569;">${clinicSettings.cro}</p>
+        </div>` : ''}
+        <div style="text-align: right; margin-top: 15px; font-size: 11px; font-style: italic;">${dataExtenso}</div>
+        <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; color: #64748b; font-size: 10px; font-family: 'Arial', sans-serif;">
+          <p style="margin: 0; font-weight: bold; color: #334155;">${clinicSettings.address}</p>
+          <p style="margin: 4px 0 0;">Telefone / WhatsApp: ${clinicSettings.phone}</p>
+        </div>
+      </div>
+    `;
+
+    const fileNameFormatado = `${docTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${(selectedPatient.nome || 'paciente').replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+    const opt = {
+      margin: 10,
+      filename: fileNameFormatado,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    const doDownload = () => window.html2pdf().set(opt).from(element).save();
+
+    if (window.html2pdf) {
+      doDownload();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.onload = doDownload;
+      document.body.appendChild(script);
+    }
   };
 
   return (
@@ -671,7 +976,7 @@ function DocumentsView({ patients, clinicSettings }) {
       <h2 className="text-2xl font-bold text-slate-800">Documentos e Receitas</h2>
       <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-6">
         
-        {/* Nova Barra de Pesquisa de Paciente */}
+        {/* Barra de Pesquisa de Paciente */}
         <div className="relative" ref={dropdownRef}>
           <label className="block text-sm font-medium text-slate-700 mb-2">1. Selecione o Paciente (Busca Rápida)</label>
           <div className="relative">
@@ -735,22 +1040,112 @@ function DocumentsView({ patients, clinicSettings }) {
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">2. Tipo de Documento</label>
           <select className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50" value={docType} onChange={e => setDocType(e.target.value)}>
-            <option value="receita_simples">Receituário Simples</option>
-            <option value="atestado_repouso">Atestado de Repouso</option>
-            <option value="orcamento">Orçamento de Tratamento</option>
+            <optgroup label="Receitas e Prescrições">
+              <option value="receita_simples">Receituário Simples</option>
+              <option value="receita_controle">Receituário Controle Especial (2 vias)</option>
+            </optgroup>
+            <optgroup label="Atestados e Declarações">
+              <option value="atestado_dias">Atestado de Repouso (Dias)</option>
+              <option value="declaracao_comparecimento">Declaração de Comparecimento</option>
+            </optgroup>
+            <optgroup label="Clínicos">
+              <option value="solicitacao">Solicitação / Encaminhamento</option>
+              <option value="orientacao_pos_op">Orientação Pós-Operatório</option>
+              <option value="avaliacao">Avaliação Clínica</option>
+            </optgroup>
+            <optgroup label="Administrativo e Legal">
+              <option value="orcamento">Orçamento de Tratamento</option>
+              <option value="contrato">Contrato de Prestação de Serviços</option>
+            </optgroup>
           </select>
         </div>
 
-        {docType.includes('receita') && (
+        {/* Campos Condicionais conforme o Tipo de Documento */}
+        {docType === 'atestado_dias' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Quantidade de Dias</label>
+              <input type="number" name="dias" value={docData.dias} onChange={handleDataChange} min="1" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Observações (Opcional - ex: CID)</label>
+              <input type="text" name="observacao" value={docData.observacao} onChange={handleDataChange} placeholder="Ex: CID K04.7" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+          </div>
+        )}
+
+        {(docType === 'declaracao_comparecimento' || docType === 'atestado_comparecimento') && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Data da Consulta</label>
+              <input type="date" name="dataConsulta" value={docData.dataConsulta} onChange={handleDataChange} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hora Início</label>
+              <input type="time" name="horaInicio" value={docData.horaInicio} onChange={handleDataChange} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Hora Fim</label>
+              <input type="time" name="horaFim" value={docData.horaFim} onChange={handleDataChange} className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" />
+            </div>
+          </div>
+        )}
+
+        {(docType === 'receita_simples' || docType === 'receita_controle') && (
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">3. Prescrição</label>
-            <textarea className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 h-48 outline-none resize-none" value={docData.prescricao} onChange={e => setDocData({...docData, prescricao: e.target.value})} />
+            <label className="block text-sm font-medium text-slate-700 mb-2">3. Prescrição Médica</label>
+            <textarea name="prescricao" value={docData.prescricao} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-yellow-50/30"></textarea>
+          </div>
+        )}
+
+        {docType === 'solicitacao' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Texto da Solicitação / Encaminhamento</label>
+            <textarea name="solicitacaoText" value={docData.solicitacaoText} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-blue-50/30"></textarea>
+          </div>
+        )}
+
+        {docType === 'orientacao_pos_op' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Orientações ao Paciente</label>
+            <textarea name="orientacaoText" value={docData.orientacaoText} onChange={handleDataChange} rows="10" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/30"></textarea>
+          </div>
+        )}
+
+        {docType === 'avaliacao' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Ficha de Avaliação Clínica</label>
+            <textarea name="avaliacaoText" value={docData.avaliacaoText} onChange={handleDataChange} rows="8" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-purple-50/30"></textarea>
+          </div>
+        )}
+
+        {docType === 'contrato' && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Termos do Contrato</label>
+            <textarea name="contratoText" value={docData.contratoText} onChange={handleDataChange} rows="10" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-orange-50/30 text-sm"></textarea>
+          </div>
+        )}
+
+        {docType === 'orcamento' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Serviços Orçados</label>
+              <textarea name="orcamentoServicos" value={docData.orcamentoServicos} onChange={handleDataChange} rows="6" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-slate-50 text-sm"></textarea>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Condições de Pagamento</label>
+              <textarea name="orcamentoPagamento" value={docData.orcamentoPagamento} onChange={handleDataChange} rows="3" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-green-50/50 text-sm"></textarea>
+            </div>
           </div>
         )}
         
-        <div className="pt-2 border-t border-slate-100">
-          <button onClick={handlePrintDoc} className="w-full bg-teal-600 text-white py-3.5 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 hover:bg-teal-700 hover:-translate-y-0.5 transition-all">
-            <Printer size={20} /> Gerar e Imprimir Documento
+        {/* Botões de Ação Restaurados */}
+        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-slate-100">
+          <button onClick={handlePrintDoc} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-6 py-3 rounded-xl flex items-center justify-center gap-2 font-medium transition-all shadow-sm text-lg">
+            <Printer size={22} /> Imprimir
+          </button>
+          <button onClick={handleDownloadDocPDF} className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 font-medium transition-all shadow-lg hover:shadow-red-700/30 hover:-translate-y-0.5 text-lg">
+            <FileDown size={22} /> Salvar PDF
           </button>
         </div>
       </div>
@@ -763,30 +1158,99 @@ function DocumentsView({ patients, clinicSettings }) {
 // ==========================================
 function SettingsView({ clinicSettings, db, user }) {
   const [formData, setFormData] = useState(clinicSettings);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, logo: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
+    setIsSaving(true);
     try {
       await setDoc(doc(db, 'clinicas', user.uid, 'configuracoes', 'geral'), formData, { merge: true });
-      alert("Salvo!");
-    } catch (e) { alert(e.message); }
+      alert("Configurações salvas com sucesso!");
+    } catch (e) { 
+      alert(`Erro ao salvar: ${e.message}`); 
+    }
+    setIsSaving(false);
   };
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold text-slate-800">Configurações</h2>
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input type="text" placeholder="Nome Profissional" className="p-2 border rounded-lg" value={formData.doctorName} onChange={e => setFormData({...formData, doctorName: e.target.value})} />
-          <input type="text" placeholder="CRO" className="p-2 border rounded-lg" value={formData.cro} onChange={e => setFormData({...formData, cro: e.target.value})} />
-          <input type="text" placeholder="Telefone" className="p-2 border rounded-lg" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <input type="text" placeholder="Endereço" className="md:col-span-2 p-2 border rounded-lg" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">Configurações da Clínica</h2>
+        <p className="text-slate-500">Personalize o visual e os dados que aparecerão nos documentos.</p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-8">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Identidade Visual (Logotipo)</h3>
+          <div className="flex items-center gap-6">
+            <div className="w-48 h-32 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center overflow-hidden">
+              {formData.logo ? (
+                <img src={formData.logo} alt="Logo" className="max-w-full max-h-full object-contain p-2" />
+              ) : (
+                <div className="text-slate-400 flex flex-col items-center">
+                  <ImagePlus size={32} />
+                  <span className="text-sm mt-2">Sem logo</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleLogoUpload} className="hidden" />
+              <button onClick={() => fileInputRef.current.click()} className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg font-medium transition-colors mb-2 block shadow-sm">
+                Escolher Imagem...
+              </button>
+              <p className="text-sm text-slate-500">Formatos aceitos: PNG ou JPG. Fundo transparente (PNG) recomendado.</p>
+            </div>
+          </div>
         </div>
-        <button onClick={handleSave} className="bg-teal-600 text-white px-8 py-3 rounded-xl font-bold shadow-md">Salvar Alterações</button>
+
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Dados Profissionais (Cabeçalho/Rodapé)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Profissional / Clínica</label>
+              <input type="text" name="doctorName" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={formData.doctorName} onChange={handleChange} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Registro (ex: CROSP)</label>
+              <input type="text" name="cro" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={formData.cro} onChange={handleChange} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Telefone / WhatsApp</label>
+              <input type="text" name="phone" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={formData.phone} onChange={handleChange} />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Endereço Completo</label>
+              <input type="text" name="address" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none" value={formData.address} onChange={handleChange} />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end pt-4">
+          <button onClick={handleSave} disabled={isSaving} className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl font-bold shadow-md">
+            {isSaving ? 'A guardar...' : 'Salvar Alterações'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ==========================================
-// AUTH SCREEN - Atualizada com Logótipo
+// AUTH SCREEN
 // ==========================================
 function AuthScreen({ auth }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -825,8 +1289,14 @@ function AuthScreen({ auth }) {
           </div>
           {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input required type="email" placeholder="E-mail" className="w-full p-3 border rounded-xl" value={email} onChange={e => setEmail(e.target.value)} />
-            <input required type="password" placeholder="Senha" className="w-full p-3 border rounded-xl" value={password} onChange={e => setPassword(e.target.value)} />
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input required type="email" placeholder="E-mail" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input required type="password" placeholder="Senha" className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none" value={password} onChange={e => setPassword(e.target.value)} />
+            </div>
             <button type="submit" disabled={loading} className="w-full bg-teal-600 text-white font-bold py-4 rounded-xl shadow-md flex justify-center items-center gap-2">
               {loading ? 'Aguarde...' : (isLogin ? 'Entrar no Sistema' : 'Registar Consultório')}
             </button>
