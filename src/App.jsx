@@ -143,8 +143,6 @@ function App() {
         try {
           await signInWithCustomToken(auth, __initial_auth_token);
         } catch (e) {
-          // Substituído console.error por console.log para evitar o aviso vermelho no Canvas, 
-          // já que a chave do Canvas não coincide com a chave real do seu banco de dados, e isso é o comportamento esperado.
           console.log("Acesso via ambiente de teste detetado. Aguardando início de sessão manual.");
         }
       }
@@ -329,7 +327,6 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
-      // 1. Normaliza as variáveis (Tudo minúsculo, sem espaços extra nas pontas, lidando com números e nulos)
       const nome = String(p.nome || '').toLowerCase().trim();
       const pasta = String(p.pasta || '').toLowerCase().trim();
       const term = searchTerm.toLowerCase().trim();
@@ -340,7 +337,6 @@ function PatientsView({ patients, onDelete, onEdit, onAddNew, onImport }) {
       const pPlano = String(p.plano || '').toLowerCase().trim();
       const fPlano = filterPlano.toLowerCase().trim();
 
-      // 2. Comparações infalíveis
       const matchName = term === '' || nome.includes(term) || pasta.includes(term);
       const matchStatus = fStatus === '' || pStatus === fStatus;
       const matchPlano = fPlano === '' || pPlano.includes(fPlano);
